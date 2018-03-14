@@ -1,17 +1,44 @@
-#For now there are some problems with run this on my system
-#I'll fix them after came back home
+#^#Authot's comment
+#Here are some additional commented code for the future testing and researching
+#
+#$#
 
-#pip install flask
-#pip install flask-socketio
-#pip install eventlet
+#^#Install details
+#pip3 install flask
+#pip3 install flask-socketio==2.8.3
+#pip3 install --upgrade python-socketio
+#pip3 install eventlet
+#$#
+
+#pip3 install raven[flask] # for logging flask
+
+#^#^#Imports
+
+#^#Flask
+#flask
 import flask
-from flask import Flask as fl
+from flask import Flask as fl, request as flask_req
+#flask-socketio
 import flask_socketio as flask_sio
 from flask_socketio import SocketIO as sio, emit
-
+#$#
+"""
+#^#Logging
+#raven
+from raven.contrib.flask import Sentry as flask_sentry
+from raven.handlers.logging import SentryHandler as flask_sentry_handler
+from raven import setup_logging as flask_sentry_setup
+#logging
+import logging
+#$#
+"""
+#^#Anothers
 import random
+#$#
 
-#Some functions
+#$#$#
+
+#^#^#Some functions
 def randomSentence(lenRangeStart=0, lenRangeEnd=0):
     absLenMax = 255
     if lenRangeStart == 0 and lenRangeEnd == 0:
@@ -30,60 +57,107 @@ def randomSentence(lenRangeStart=0, lenRangeEnd=0):
         result += random.choice(sentenceCharactersAlphabet)
         
     return result
+#$#$#
 
-#Main app's body
-testApp = fl(__name__)
-testApp_secretKey = randomSentence(50)
-testApp.config["SECRET_KEY"] = testApp_secretKey
-testSio = sio(testApp)
+#^#^#^#Main app's body
 
-#^Testing junk
-ark = {0:[]}
-#$Testing junk
+#^#Declare and init Flask
+flApp = fl(__name__)
+flApp_secretKey = randomSentence(50)
+flApp.config["SECRET_KEY"] = flApp_secretKey
+#$#
 
+#^#Declare and init Flask-SocketIO
+flSioApp = sio(flApp)
+#$#
 
-#Test pure flask
-@testApp.route("/")
+"""
+#^#Logging
+    #Raven Sentry
+sentrySentry = flask_sentry(testApp, logging=True, level=logging.DEBUG) #logging.WARNING
+sentryHandler = flask_sentry_handler(sentrySentry.client)
+#if not flask_sentry_setup(sentryHandler):
+#    raise "ERROR: Configuring raven sentry failed!"
+    #Default Logging
+logger = logging.getLogger(__name__)
+if not sentryHandler.__class__ in map(type, logger.handlers):
+    logger.addHandler(sentryHandler)
+#$#
+"""
+
+#^#Recived data history
+recivedDataHistory = {}
+def addRecivedDataaToHistory(requestTitle, data):
+    requestTitle = str(requestTitle)
+    try:
+        recivedDataHistory[requestTitle].append(data)
+    except:
+        recivedDataHistory[requestTitle] = []
+        recivedDataHistory[requestTitle].append(data)
+#$#
+
+#^#Flask
+@flApp.route("/")
 def index():
     return """<html><body><div style="background-color:red; min-width:500px; min-height:500px">Aloha brother!</div></body></html>"""
 
-@testApp.route("/login")
+@flApp.route("/login")
 def login():
     return """<html><body><div style="background-color:yellow; min-width:500px; min-height:500px">Brother, you cannot sign in how...</div></body></html>"""
 
-@testApp.route("/user/<username>")
+@flApp.route("/user/<username>")
 def profile(username):
     return """<html><body><div style="background-color:blue; min-width:500px; min-height:500px">Dear brother, for now you have a name! You're {username}</div></body></html>""".format(username=username)
-    
-#Test Flask SocketIO
-@testSio.on("connect", namespace="/socket.io")
-def test_connect(message):
-    #^Testing junk
+
+@flApp.route("/shutdown")
+def shutdownTheFlaskApp():
+    shutdownFlask = flask_req.environ.get("werkzeug.server.shutdown")
+    if shutdownFlask != None:
+        shutdownFlask()
+        return "<p><b>ShutedDown</b></p>"
+    else:
+        return "<p><b>Cannot ShutDown</b></p>"
+#$#
+
+#^#Flask SocketIO
+
+@flSioApp.on("connect", namespace="/socket.io")
+def connect():
     print("connect")
-    ark[0].append(message)
-    #$Testing junk
-    if message["data"].lower() == "connect":
-        emit("response", {"data" : "Connected"})
-    else:
-        emit("response", {"data" : "Wrong request!"})
+    emit("connect_res", {"status" : "OK"})
     
-@testSio.on("info", namespace="/socket.io")
-def info(message):
-    #^Testing junk
-    print("info")
-    ark[0].append(message)
-    #$Testing junk
-    if message["data"] == "777":
-        emit("response", {"info" : "thisIsTruthTheInfo!"})
-    else:
-        emit("response", {"error" : "Wrong password!"})
+@flSioApp.on("info", namespace="/socket.io")
+def info(data=None):
+    print("info [{0}]".format(data))
+    if not data == None:
+        addRecivedDataaToHistory("info", data)
         
-@testSio.on("message", namespace="/socket.io")
-def send_message(message):
-    #^Testing junk
-    print("message")
-    ark[0].append(message)
-    #$Testing junk
-    emit("response", message)
-    
-testSio.run(testApp, host="localhost", port=5000, debug=True)
+    if type(data) == dict:
+        #if data.get("password") == 777:
+        if str(data.get("password")).strip() == "777":
+            emit("info_res", {"status" : "OK", "info" : "thisIsTruthTheInfo!"})
+        else:
+            emit("info_res", {"status" : "ERROR", "errorCode" : 401, "errorText" : "Access denied!"})
+    else:
+        emit("info_res", {"status" : "ERROR", "errorCode" : 400, "errorText" : "Wrong data format!"})
+        
+@flSioApp.on("message", namespace="/socket.io")
+def send_message(data=None):
+    print("message [{0}]".format(data))
+    if not data == None:
+        addRecivedDataaToHistory("message", data)
+        
+    emit("message_res", {"status" : "OK", "data" : data})
+
+#$#
+
+#$#$#$#
+
+# #Test raven(logging) for flask
+# @testApp.errorhandler()
+# def log_error(error):
+#     print("[RAVEN] ERROR: {0}".format(error))
+
+  
+if __name__ == "__main__":
+    flSioApp.run(flApp, host="localhost", port=5000, debug=False, use_reloader=False)
