@@ -1,0 +1,51 @@
+:::Скрипт разметки БД PostgreSQL:::
+"""
+CREATE TABLE "Users" (
+	"id" serial NOT NULL,
+	"telegram_id" integer NOT NULL UNIQUE,
+	"user_info" json,
+	CONSTRAINT Users_pk PRIMARY KEY ("id")
+) WITH (
+  OIDS=FALSE
+);
+CREATE TABLE "Sessions" (
+	"session_id" uuid NOT NULL UNIQUE,
+	"expiration" TIMESTAMP NOT NULL DEFAULT (now()+interval '2 days'),
+	"user_id" integer,
+	CONSTRAINT Sessions_pk PRIMARY KEY ("session_id")
+) WITH (
+  OIDS=FALSE
+);
+ALTER TABLE "Sessions" ADD CONSTRAINT "Sessions_fk0" FOREIGN KEY ("user_id") REFERENCES "Users"("id");
+"""
+
+:::Скрипт установки необходимых пакетов для Python 3.5:::
+pip3 install flask
+pip3 install flask-socketio
+pip3 install eventlet
+pip3 install py-postgresql
+pip3 install python-telegram-bot
+
+::Некоторая инфа о сервере::
+
+:Flask + Flask-SocketIO:
+127.0.0.1:5000
+
+:SocketIO:
+/api 'stream'
+type INIT -> type AUTH -> type USER
+
+:Flask:
+/
+/login
+/user/<name>/
+
+:TelegramBot:
+/start {session_id[uuid]}
+/start 0518fc28-4018-42e2-bd9c-fdcb8bf7ec50
+Ник: @UristLikotBot
+
+
+
+-=-=-=-=-=-=-=-=-=-
+To be continued...
