@@ -1,4 +1,4 @@
-:::Скрипт разметки БД PostgreSQL:::
+:::РЎРєСЂРёРїС‚ СЂР°Р·РјРµС‚РєРё Р‘Р” PostgreSQL:::
 """
 CREATE TABLE "Users" (
 	"id" serial NOT NULL,
@@ -19,27 +19,31 @@ CREATE TABLE "Sessions" (
 ALTER TABLE "Sessions" ADD CONSTRAINT "Sessions_fk0" FOREIGN KEY ("user_id") REFERENCES "Users"("id");
 """
 
-:::Скрипт установки необходимых пакетов для Python 3.5:::
+:::РЎРєСЂРёРїС‚ СѓСЃС‚Р°РЅРѕРІРєРё РЅРµРѕР±С…РѕРґРёРјС‹С… РїР°РєРµС‚РѕРІ РґР»СЏ Python 3.5:::
 pip3 install flask
 pip3 install flask-socketio
 pip3 install eventlet
 pip3 install py-postgresql
 pip3 install python-telegram-bot
 
-::Некоторая инфа о сервере::
+::РќРµРєРѕС‚РѕСЂР°СЏ РёРЅС„Р° Рѕ СЃРµСЂРІРµСЂРµ::
+
 :Flask + Flask-SocketIO:
 127.0.0.1:5000
+
 :SocketIO:
 /api 'stream'
 type INIT -> type AUTH -> type USER
+
 :Flask:
 /
 /login
 /user/<name>/
 
 :TelegramBot:
-А чего тут писать?! Есть, работает.
-Ник: @UristLikotBot
+/start {session_id[uuid]}
+/start 0518fc28-4018-42e2-bd9c-fdcb8bf7ec50
+РќРёРє: @UristLikotBot
 
 
 
