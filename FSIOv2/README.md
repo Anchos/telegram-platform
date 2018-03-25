@@ -5,6 +5,8 @@
 Название БД "telega"
 Адрес старта и порт стандартные
 127.0.0.1:5432
+
+Разметка БД
 ```sql
 CREATE TABLE "Users" (
   "id" serial NOT NULL,
@@ -26,6 +28,20 @@ ALTER TABLE "Sessions" ADD CONSTRAINT "Sessions_fk0" FOREIGN KEY ("user_id") REF
 ```
 
 Необходим пользователь `devUser` с правами на все действия с данной базой данных и всем, что внутри неё, с паролем `1234567890Qq`.
+
+
+Некоторые другие комманды для самостоятельной развертки БД и тд.
+```sql
+CREATE DATABASE telega ENCODING 'UTF8';
+CREATE USER "devUser" WITH PASSWORD '1234567890Qq';
+    ALTER USER "devUser" WITH superuser;
+    [or]
+    GRANT ALL PRIVILEGES ON TABLE "Users" TO "devUser";
+    GRANT ALL PRIVILEGES ON TABLE "Sessions" TO "devUser";
+    [...]
+```
+
+
 
 Либо использовать скрипт [`initPostgreSQL.bat`](https://github.com/m-2k/telegram-platform/blob/master/FSIOv2/initPostgreSQL.bat) (под Windows), который надо положить в директорию `%POSTGRESQL_DIR%/bin`, и оттуда запустить.
 
