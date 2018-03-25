@@ -38,6 +38,7 @@ CREATE USER "devUser" WITH PASSWORD '1234567890Qq';
     [or]
     GRANT ALL PRIVILEGES ON TABLE "Users" TO "devUser";
     GRANT ALL PRIVILEGES ON TABLE "Sessions" TO "devUser";
+    GRANT ALL PRIVILEGES ON SEQUENCE "Users_id_seq" TO "devUser";
     [...]
 ```
 
