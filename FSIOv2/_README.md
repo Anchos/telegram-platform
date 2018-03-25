@@ -21,7 +21,7 @@ CREATE TABLE "Sessions" (
 );
 ALTER TABLE "Sessions" ADD CONSTRAINT "Sessions_fk0" FOREIGN KEY ("user_id") REFERENCES "Users"("id");
 """
-__:Необходим пользователь devUser с правами на все действия с данной базой данных и всем, что внутри неё, с паролем 1234567890QQ
+__:Необходим пользователь devUser с правами на все действия с данной базой данных и всем, что внутри неё, с паролем 1234567890Qq
 - ! - ! - ! - ! - !  -
 __:Либо использовать bat скрипт (Под винду) initPostgreSQL.bat , который надо положить в директорию [postgresql installed dir]/bin, и оттуда запустить
 ____________________

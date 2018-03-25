@@ -22,7 +22,7 @@ CREATE TABLE "Sessions" (
 ALTER TABLE "Sessions" ADD CONSTRAINT "Sessions_fk0" FOREIGN KEY ("user_id") REFERENCES "Users"("id");
 ```
 
-Необходим пользователь `devUser` с правами на все действия с данной базой данных и всем, что внутри неё, с паролем `1234567890QQ`.
+Необходим пользователь `devUser` с правами на все действия с данной базой данных и всем, что внутри неё, с паролем `1234567890Qq`.
 
 Либо использовать скрипт [`initPostgreSQL.bat`](https://github.com/m-2k/telegram-platform/blob/master/FSIOv2/initPostgreSQL.bat) (под Windows), который надо положить в директорию `%POSTGRESQL_DIR%/bin`, и оттуда запустить.
 
