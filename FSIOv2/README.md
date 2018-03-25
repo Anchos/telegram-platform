@@ -2,6 +2,9 @@
 
 ### Скрипт разметки PostgreSQL
 
+Название БД "telega"
+Адрес старта и порт стандартные
+127.0.0.1:5432
 ```sql
 CREATE TABLE "Users" (
   "id" serial NOT NULL,
