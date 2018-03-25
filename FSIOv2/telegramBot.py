@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 from telegram.ext import CommandHandler, Updater
 from telegram import Bot, Chat,TelegramError
 import threading
@@ -6,11 +7,11 @@ import threading
 class TelegramCustomBot:
     updater = Updater(token='459744558:AAEm1FxxzQ3KblbACDJjAWLQkDRnLK5TuFc')
     bot = updater.dispatcher.bot
-    
+
     thread = None
-    
+
     database = None
-    
+
     def proveUser(self, bot, update):
         messageArgs = update.message.text.split(" ")
         if self.database.Sessions.check(session_id=messageArgs[1]) if len(messageArgs) == 2 else False:
@@ -22,12 +23,12 @@ class TelegramCustomBot:
         else:
             bot.send_message(chat_id=update.message.chat_id, text='Error! Try again!')
             return None
-    
+
     def botWorker(self):
         init_command_handler = CommandHandler('start', self.proveUser)
         self.updater.dispatcher.add_handler(init_command_handler)
         self.updater.start_polling(clean=True)
-    
+
     def __init__(self, database):
         self.database = database
         self.thread = threading.Thread(target=self.botWorker)
@@ -41,7 +42,7 @@ def check_group(bot,channe_name):
         return True
     except (TelegramError):
         return False
-        
+
 def check_group_admin(bot, channel_name):
     try:
         admins = Bot.getChatAdministrators(bot, chat_id=channel_name)
