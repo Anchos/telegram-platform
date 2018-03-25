@@ -36,10 +36,12 @@ CREATE DATABASE telega ENCODING 'UTF8';
 CREATE USER "devUser" WITH PASSWORD '1234567890Qq';
     ALTER USER "devUser" WITH superuser;
     [or]
+    GRANT ALL PRIVILEGES ON DATABASE "telega" to "devUser";
     GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO "devUser";
     GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO "devUser";
     [...]
     [or]
+    GRANT ALL PRIVILEGES ON DATABASE "telega" to "devUser";
     GRANT ALL PRIVILEGES ON TABLE "Users" TO "devUser";
     GRANT ALL PRIVILEGES ON TABLE "Sessions" TO "devUser";
     GRANT ALL PRIVILEGES ON SEQUENCE "Users_id_seq" TO "devUser";
