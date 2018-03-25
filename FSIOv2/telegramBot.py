@@ -33,7 +33,6 @@ class TelegramCustomBot:
             #'log' should be deleted
             print(update.message.text)
             print("Error! Try again!")
-            return None
         
             
 
