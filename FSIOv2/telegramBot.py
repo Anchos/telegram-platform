@@ -20,11 +20,22 @@ class TelegramCustomBot:
                 
             if self.database.Sessions.setUser(telegram_id=update.message.chat_id, session_id=messageArgs[1]):
                 bot.send_message(chat_id=update.message.chat_id, text='Accepted!')
+                #'log' should be deleted
+                print(update.message.text)
+                print("Accepted!")
             else:
                 bot.send_message(chat_id=update.message.chat_id, text='Something went wrong...!')
+                #'log' should be deleted
+                print(update.message.text)
+                print("Something went wrong...!")
         else:
             bot.send_message(chat_id=update.message.chat_id, text='Error! Try again!')
+            #'log' should be deleted
+            print(update.message.text)
+            print("Error! Try again!")
             return None
+        
+            
 
     def botWorker(self):
         init_command_handler = CommandHandler('start', self.proveUser)
