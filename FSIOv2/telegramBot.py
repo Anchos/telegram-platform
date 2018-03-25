@@ -15,7 +15,9 @@ class TelegramCustomBot:
     def proveUser(self, bot, update):
         messageArgs = update.message.text.split(" ")
         if self.database.Sessions.check(session_id=messageArgs[1]) if len(messageArgs) == 2 else False:
-            self.database.Users.add(telegram_id=update.message.chat_id)
+            if not self.database.Users.check(telegram_id=update.message.chat_id):
+                self.database.Users.add(telegram_id=update.message.chat_id)
+                
             if self.database.Sessions.setUser(telegram_id=update.message.chat_id, session_id=messageArgs[1]):
                 bot.send_message(chat_id=update.message.chat_id, text='Accepted!')
             else:
