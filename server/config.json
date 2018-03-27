@@ -1,0 +1,19 @@
+{
+  "API": {
+    "host": "0.0.0.0",
+    "port": 5000
+  },
+  "pool": {
+    "host": "0.0.0.0",
+    "port": 8000,
+    "ping_enabled": true,
+    "ping_interval": 10.0
+  },
+  "DB": {
+    "database": "postgres",
+    "host": "0.0.0.0",
+    "port": 5432,
+    "user": "postgres",
+    "password": "test"
+  }
+}
