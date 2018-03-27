@@ -2,9 +2,7 @@ import json
 import logging
 
 from aiohttp import web, WSMsgType
-
 from .db import Task
-
 
 class Pool(object):
     def __init__(self):
