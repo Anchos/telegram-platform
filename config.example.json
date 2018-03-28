@@ -4,10 +4,12 @@
     "port": 5000
   },
   "API": {
+    "endpoint": "/client",
     "ping_enabled": true,
     "ping_interval": 5.0
   },
   "pool": {
+    "endpoint": "/bot",
     "ping_enabled": true,
     "ping_interval": 30.0
   },

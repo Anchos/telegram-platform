@@ -23,7 +23,7 @@ class Pool(object):
     def __init__(self):
         self._config = json.loads(open("config.json").read())["pool"]
         self.routes = [
-            web.get("/bot", self.process_bot)
+            web.get(self._config["endpoint"], self.process_bot)
         ]
         self._bots = []
 

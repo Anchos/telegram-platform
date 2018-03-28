@@ -14,7 +14,7 @@ class API(object):
         self._pool = pool
         self._sessions = {}
         self.routes = [
-            web.get("/client", self.process_client)
+            web.get(self._config["endpoint"], self.process_client)
         ]
 
     async def process_client(self, request: web.Request) -> web.WebSocketResponse:
