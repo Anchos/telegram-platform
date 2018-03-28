@@ -1,43 +1,89 @@
 import json
 import logging
+import random
+import uuid
 
-from aiohttp import web
+from aiohttp import web, WSMsgType
 
-from .db import Task
 from .pool import Pool
 
 
 class API(object):
     def __init__(self, pool: Pool):
         self._config = json.loads(open("config.json").read())["API"]
-
-        self._app = web.Application()
-        self._app.add_routes([
-            web.get("/tasks", self.get_tasks),
-            web.post("/tasks", self.add_tasks),
-        ])
-
         self._pool = pool
+        self._sessions = {}
+        self.routes = [
+            web.get("/client", self.process_client)
+        ]
 
-    def run(self):
-        """Starts aiohttp HTTP server at host and port specified in config"""
+    async def process_client(self, request: web.Request) -> web.WebSocketResponse:
+        ws = web.WebSocketResponse()
+        await ws.prepare(request)
 
-        logging.info("[API] Starting")
+        async for message in ws:
 
-        web.run_app(
-            self._app,
-            host=self._config["host"],
-            port=self._config["port"],
-        )
+            if message.type == WSMsgType.TEXT:
+                logging.info("[API] Client send %s" % message.data)
+                await self._process_message(ws, message.data)
 
-    async def get_tasks(self, request: web.Request) -> web.Response:
-        logging.info("[API] GET TASKS")
-        task = Task.get()
-        return web.Response(text=task.data)
+            elif message.type == WSMsgType.CLOSE or message.type == WSMsgType.ERROR:
+                logging.info("[API] Client disconnected")
+                await ws.close()
 
-    async def add_tasks(self, request: web.Request) -> web.Response:
-        logging.info("[API] NEW TASK")
+        return ws
 
-        self._pool.send_task("TEST TASK")
+    async def _process_message(self, client: web.WebSocketResponse, message: str):
+        message = json.loads(message)
 
-        return web.Response(text="OK")
+        if message["action"] == "INIT":
+            await self._client_init(client, message)
+            return
+
+        if message["action"] == "AUTH":
+            await self._client_auth(client, message)
+            return
+
+    async def _client_init(self, client: web.WebSocketResponse, message: dict):
+        response = {
+            "id": message["id"],
+            "action": message["action"],
+            "expires_in": 172800,
+        }
+
+        if "session_id" not in message or message["session_id"] not in self._sessions:
+            new_uuid = str(uuid.uuid4())
+            new_user_id = self._generate_user_id(self._sessions)
+
+            self._sessions[new_uuid] = {
+                "used_id": new_user_id,
+                "session_id": new_uuid
+            }
+
+            response["session_id"] = new_uuid
+            response["user_id"] = new_user_id
+        else:
+            response["session_id"] = message["session_id"]
+            response["user_id"] = self._sessions[message["session_id"]].user_id
+
+        await client.send_json(response)
+
+    async def _client_auth(self, client: web.WebSocketResponse, message: dict):
+        response = {
+            "id": message["id"],
+            "action": message["action"],
+        }
+
+        if "session_id" not in message or message["session_id"] not in self._sessions:
+            response["user_id"] = None
+        else:
+            response["user_id"] = self._sessions[message["session_id"]].user_id
+
+        await client.send_json(response)
+
+    def _generate_user_id(self, sessions: dict) -> int:
+        user_id = random.randint(100000, 999999)
+        for session in sessions:
+            if session.user_id == user_id:
+                return self._generate_user_id(sessions)
+        return user_id
