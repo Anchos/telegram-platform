@@ -53,10 +53,10 @@ class API(object):
 
         if "session_id" not in message or message["session_id"] not in self._sessions:
             new_uuid = str(uuid.uuid4())
-            new_user_id = self._generate_user_id(self._sessions)
+            new_user_id = self._generate_user_id()
 
             self._sessions[new_uuid] = {
-                "used_id": new_user_id,
+                "user_id": new_user_id,
                 "session_id": new_uuid
             }
 
@@ -64,7 +64,7 @@ class API(object):
             response["user_id"] = new_user_id
         else:
             response["session_id"] = message["session_id"]
-            response["user_id"] = self._sessions[message["session_id"]].user_id
+            response["user_id"] = self._sessions[message["session_id"]]["user_id"]
 
         await client.send_json(response)
 
@@ -81,9 +81,14 @@ class API(object):
 
         await client.send_json(response)
 
-    def _generate_user_id(self, sessions: dict) -> int:
+    def _generate_user_id(self) -> int:
         user_id = random.randint(100000, 999999)
-        for session in sessions:
-            if session.user_id == user_id:
-                return self._generate_user_id(sessions)
+
+        if len(self._sessions) == 0:
+            return user_id
+
+        for session in self._sessions:
+            if self._sessions[session] == user_id:
+                return self._generate_user_id()
+
         return user_id
