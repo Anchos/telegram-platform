@@ -77,7 +77,7 @@ class API(object):
         if "session_id" not in message or message["session_id"] not in self._sessions:
             response["user_id"] = None
         else:
-            response["user_id"] = self._sessions[message["session_id"]].user_id
+            response["user_id"] = self._sessions[message["session_id"]]["user_id"]
 
         await client.send_json(response)
 
