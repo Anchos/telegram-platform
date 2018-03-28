@@ -27,6 +27,10 @@ class Pool(object):
         ]
         self._bots = []
 
+    @staticmethod
+    def _log(message):
+        logging.info("[POOL] %s" % message)
+
     def _get_optimal_bot(self) -> Bot:
         """Sort bots by current number of tasks and return the one with least tasks"""
 

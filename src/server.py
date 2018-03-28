@@ -10,8 +10,12 @@ class Server(object):
 
         self._app = web.Application()
 
+    @staticmethod
+    def _log(message):
+        logging.info("[SERVER] %s" % message)
+
     def run(self):
-        logging.info("[SERVER] STARTING")
+        self._log("STARTING")
 
         web.run_app(
             self._app,
