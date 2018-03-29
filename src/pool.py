@@ -3,20 +3,8 @@ import logging
 
 from aiohttp import web, WSMsgType
 
+from .bot import Bot
 from .db import Task
-
-
-class Bot(object):
-    def __init__(self, connection: web.WebSocketResponse):
-        """Creates bot with 0 tasks and provided connection"""
-
-        self._connection = connection
-        self.tasks = 0
-
-    async def send_task(self, task: str):
-        """Sends a task to the bot in JSON encoded string"""
-
-        await self._connection.send_str(task)
 
 
 class Pool(object):
@@ -25,6 +13,11 @@ class Pool(object):
         self.routes = [
             web.get(self._config["endpoint"], self.process_bot)
         ]
+
+        self._pending_tasks = Task.get_uncompleted()
+
+        self._log(self._pending_tasks)
+
         self._bots = []
 
     @staticmethod
@@ -39,13 +32,18 @@ class Pool(object):
 
         return self._bots[0]
 
-    def send_task(self, task: str):
+    async def send_task(self, task: str):
         """Adds new task to DB and sends it to Bot"""
 
-        bot = self._get_optimal_bot()
-        bot.send_task(task)
+        task = Task.create(completed=False, data=task)
 
-        Task.create(completed=False, data=task)
+        if len(self._bots) == 0:
+            self._log("No bots available. Caching task")
+            self._pending_tasks.append(task)
+
+        else:
+            bot = self._get_optimal_bot()
+            bot.send_task(task)
 
     async def broadcast(self, message: str):
         """Sends a message to all connected clients"""
@@ -54,30 +52,36 @@ class Pool(object):
             try:
                 await client.send_json(message)
             except RuntimeError as e:
-                logging.info(e)
+                self._log(e)
                 self._bots.remove(client)
             except ValueError as e:
-                logging.info(e)
+                self._log(e)
 
     async def process_bot(self, request: web.Request) -> web.WebSocketResponse:
         """Appends bot to the pool and listens to incoming messages"""
+        self._log("New bot connection")
 
         ws = web.WebSocketResponse(
-            heartbeat=self._config["ping_interval"]
+            heartbeat=self._config["ping_interval"] if self._config["ping_enabled"] else None
         )
         await ws.prepare(request)
 
         bot = Bot(connection=ws)
         self._bots.append(bot)
 
+        if len(self._pending_tasks) > 0:
+            self._log("Sending pending tasks")
+            for task in self._pending_tasks:
+                bot.send_task(task)
+
         async for message in ws:
 
             if message.type == WSMsgType.text:
-                logging.info("[POOL] Bot send %s" % message.data)
+                self._log("Bot send %s" % message.data)
                 bot.tasks -= 1
 
             elif message.type == WSMsgType.CLOSE or message.type == WSMsgType.ERROR:
-                logging.info("[POOL] Bot disconnected")
+                self._log("Bot disconnected")
                 await ws.close()
                 self._bots.remove(bot)
 
