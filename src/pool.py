@@ -13,11 +13,8 @@ class Pool(object):
         self.routes = [
             web.get(self._config["endpoint"], self.process_bot)
         ]
-
         self._pending_tasks = Task.get_uncompleted()
-
-        self._log(self._pending_tasks)
-
+        self._log("Pending tasks %s" % self._pending_tasks)
         self._bots = []
 
     @staticmethod
@@ -59,6 +56,7 @@ class Pool(object):
 
     async def process_bot(self, request: web.Request) -> web.WebSocketResponse:
         """Appends bot to the pool and listens to incoming messages"""
+
         self._log("New bot connection")
 
         ws = web.WebSocketResponse(
