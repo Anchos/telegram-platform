@@ -40,7 +40,7 @@ class Pool(object):
 
         else:
             bot = self._get_optimal_bot()
-            bot.send_task(task)
+            await bot.send_task(task)
 
     async def broadcast(self, message: str):
         """Sends a message to all connected clients"""
