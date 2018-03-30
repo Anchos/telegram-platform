@@ -70,7 +70,7 @@ class Pool(object):
         if len(self._pending_tasks) > 0:
             self._log("Sending pending tasks")
             for task in self._pending_tasks:
-                bot.send_task(task)
+                await bot.send_task(task)
 
         async for message in ws:
 
