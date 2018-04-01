@@ -3,8 +3,9 @@ import logging
 
 from aiohttp import web, WSMsgType
 
-from .bot import Bot
-from .db import Task
+from .bot import BotConnection
+from .client import ClientConnection
+from .models import Task
 
 
 class Pool(object):
@@ -15,13 +16,14 @@ class Pool(object):
         ]
         self._pending_tasks = Task.get_uncompleted()
         self._log("Pending tasks %s" % self._pending_tasks)
+        self.sessions = {}
         self._bots = []
 
     @staticmethod
     def _log(message):
         logging.info("[POOL] %s" % message)
 
-    def _get_optimal_bot(self) -> Bot:
+    def _get_optimal_bot(self) -> BotConnection:
         """Sort bots by current number of tasks and return the one with least tasks"""
 
         self._bots.sort(key=lambda x: x.tasks, reverse=True)
@@ -29,28 +31,30 @@ class Pool(object):
 
         return self._bots[0]
 
-    async def send_task(self, task: str):
+    async def send_task(self, client_connection: ClientConnection, task: dict):
         """Adds new task to DB and sends it to Bot"""
 
-        task = Task.create(completed=False, data=task)
+        Task.create(
+            session=client_connection.session,
+            data=task)
 
         if len(self._bots) == 0:
-            self._log("No bots available. Caching task")
+            self._log("No available bots. Caching task")
+            await client_connection.send_error("no available bots")
             self._pending_tasks.append(task)
 
         else:
-            bot = self._get_optimal_bot()
-            await bot.send_task(task)
+            await self._get_optimal_bot().send_task(task)
 
     async def broadcast(self, message: str):
         """Sends a message to all connected clients"""
 
-        for client in self._bots:
+        for bot in self._bots:
             try:
-                await client.send_json(message)
+                await bot.send_json(message)
             except RuntimeError as e:
                 self._log(e)
-                self._bots.remove(client)
+                self._bots.remove(bot)
             except ValueError as e:
                 self._log(e)
 
@@ -64,7 +68,7 @@ class Pool(object):
         )
         await ws.prepare(request)
 
-        bot = Bot(connection=ws)
+        bot = BotConnection(connection=ws)
         self._bots.append(bot)
 
         if len(self._pending_tasks) > 0:
@@ -76,7 +80,7 @@ class Pool(object):
 
             if message.type == WSMsgType.text:
                 self._log("Bot send %s" % message.data)
-                bot.tasks -= 1
+                await self._process_message(bot, message.data)
 
             elif message.type == WSMsgType.CLOSE or message.type == WSMsgType.ERROR:
                 self._log("Bot disconnected")
@@ -84,3 +88,13 @@ class Pool(object):
                 self._bots.remove(bot)
 
         return ws
+
+    async def _process_message(self, bot: BotConnection, message: str):
+        bot.tasks -= 1
+        message = json.loads(message)
+
+        if message["session_id"] not in self.sessions:
+            self._log("Response ready but client not found")
+        else:
+            self._log("Response ready and sent to client")
+            self.sessions[message["session_id"]].send_response(message)

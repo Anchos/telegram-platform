@@ -1,3 +1,4 @@
+import datetime
 import json
 import logging
 import random
@@ -5,7 +6,8 @@ import uuid
 
 from aiohttp import web, WSMsgType
 
-from .client import Client
+from .client import ClientConnection
+from .models import Client, Session
 from .pool import Pool
 
 
@@ -13,7 +15,6 @@ class API(object):
     def __init__(self, pool: Pool):
         self._config = json.loads(open("config.json").read())["API"]
         self._pool = pool
-        self._clients = {}
         self.routes = [
             web.get(self._config["endpoint"], self.process_client)
         ]
@@ -26,11 +27,11 @@ class API(object):
         self._log("New client connection")
 
         ws = web.WebSocketResponse(
-            heartbeat=self._config["ping_interval"] if self._config["ping_enabled"] else None
-        )
+            heartbeat=self._config["ping_interval"] if self._config["ping_enabled"] else None)
+
         await ws.prepare(request)
 
-        client = Client(connection=ws)
+        client = ClientConnection(connection=ws)
 
         async for message in ws:
 
@@ -52,7 +53,7 @@ class API(object):
         if "action" not in message or not isinstance(message["action"], str):
             return "action is missing"
 
-    async def _process_message(self, client: Client, message: dict):
+    async def _process_message(self, client: ClientConnection, message: str):
         try:
             message = json.loads(message)
         except:
@@ -73,65 +74,53 @@ class API(object):
 
         else:
             self._log("%s request" % message["action"])
-            await self._pool.send_task(message)
+            await self._pool.send_task(client.session, message)
 
-    async def _client_init(self, client: Client, message: dict):
+    async def _client_init(self, client: ClientConnection, message: dict):
         response = {
             "id": message["id"],
             "action": message["action"],
             "expires_in": 172800,
         }
 
-        if "session_id" not in message or message["session_id"] not in self._clients:
-            self._log("New client initialisation")
+        if "session_id" not in message or not Session.exists(message["session_id"]):
+            self._log("New session initialisation")
 
-            client.session_id = str(uuid.uuid4())
-            client.user_id = self._generate_user_id()
-
-            self._clients[client.session_id] = client.user_id
-
-            response["session_id"] = client.session_id
-            response["user_id"] = client.user_id
+            client.session = Session.create(
+                session_id=str(uuid.uuid4()),
+                expiration=datetime.datetime.now() + datetime.timedelta(days=2)
+            )
+            self._pool.sessions[client.session.session_id] = client
+            response["session_id"] = client.session.session_id
 
         else:
-            self._log("Existing client initialisation")
+            self._log("Existing session initialisation")
 
-            client.session_id = message["session_id"]
-            client.user_id = self._clients[client.session_id]
-
-            response["session_id"] = client.session_id
-            response["user_id"] = client.user_id
+            client.session = Session.get(Session.session_id == message["session_id"])
+            response["session_id"] = client.session.session_id
 
         await client.send_response(response)
 
-    async def _client_auth(self, client: Client, message: dict):
+    async def _client_auth(self, client: ClientConnection, message: dict):
         response = {
             "id": message["id"],
-            "action": message["action"]
-        }
+            "action": message["action"]}
 
         if "session_id" not in message:
             await client.send_error("session_id is missing")
-            return
 
-        if message["session_id"] != client.session_id:
+        elif message["session_id"] != client.session.session_id:
             self._log("Bad authentication from client")
             response["user_id"] = None
+            await client.send_response(response)
 
         else:
             self._log("Successful authentication from client")
-            response["user_id"] = client.user_id
 
-        await client.send_response(response)
+            client.session.client = Client.create(user_id=random.randint(10000, 99999))
 
-    def _generate_user_id(self) -> int:
-        user_id = random.randint(100000, 999999)
+            client.session.save()
 
-        if len(self._clients) == 0:
-            return user_id
+            response["user_id"] = client.session.client.user_id
 
-        for session_id in self._clients:
-            if self._clients[session_id] == user_id:
-                return self._generate_user_id()
-
-        return user_id
+            await self._pool.send_task(client, message)

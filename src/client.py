@@ -1,16 +1,24 @@
+import logging
+
 from aiohttp import web
 
+from .models import Session
 
-class Client(object):
-    def __init__(self, connection: web.WebSocketResponse, user_id: int = 0, session_id: str = ""):
+
+class ClientConnection(object):
+    def __init__(self, connection: web.WebSocketResponse, session: Session = None):
         self.connection = connection
-        self.session_id = session_id
-        self.user_id = user_id
+        self.session = session
+
+    @staticmethod
+    def _log(message):
+        logging.info("[CLIENT] %s" % message)
 
     async def send_response(self, response: dict):
-        await self.connection.send_json(response)
+        try:
+            await self.connection.send_json(response)
+        except:
+            self._log("Failed to send response")
 
     async def send_error(self, error: str):
-        await self.connection.send_json({
-            "error": error
-        })
+        await self.send_response({"error": error})
