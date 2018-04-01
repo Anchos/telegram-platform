@@ -97,4 +97,4 @@ class Pool(object):
             self._log("Response ready but client not found")
         else:
             self._log("Response ready and sent to client")
-            self.sessions[message["session_id"]].send_response(message)
+            await self.sessions[message["session_id"]].send_response(message)
