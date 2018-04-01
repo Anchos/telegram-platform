@@ -1,13 +1,12 @@
 import datetime
 import json
 import logging
-import random
 import uuid
 
 from aiohttp import web, WSMsgType
 
 from .client import ClientConnection
-from .models import Client, Session
+from .models import Session
 from .pool import Pool
 
 
@@ -118,9 +117,9 @@ class API(object):
         else:
             self._log("Successful authentication from client")
 
-            client.session.client = Client.create(user_id=random.randint(10000, 99999))
-            client.session.save()
+            # client.session.client = Client.create(user_id=random.randint(10000, 99999))
+            # client.session.save()
 
-            response["user_id"] = client.session.client.user_id
+            # response["user_id"] = client.session.client.user_id
 
             await self._pool.send_task(client, message)
