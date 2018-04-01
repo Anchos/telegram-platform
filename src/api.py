@@ -65,10 +65,6 @@ class API(object):
             self._log("INIT request")
             await self._client_init(client, message)
 
-        elif message["action"] == "AUTH":
-            self._log("AUTH request")
-            await self._client_auth(client, message)
-
         else:
             self._log("%s request" % message["action"])
             await self._pool.send_task(client.session, message)
@@ -98,28 +94,3 @@ class API(object):
             response["session_id"] = client.session.session_id
 
         await client.send_response(response)
-
-    async def _client_auth(self, client: ClientConnection, message: dict):
-        response = {
-            "id": message["id"],
-            "action": message["action"],
-        }
-
-        if "session_id" not in message:
-            await client.send_error("session_id is missing")
-
-        elif message["session_id"] != client.session.session_id:
-            self._log("Bad authentication from client")
-
-            response["user_id"] = None
-            await client.send_response(response)
-
-        else:
-            self._log("Successful authentication from client")
-
-            # client.session.client = Client.create(user_id=random.randint(10000, 99999))
-            # client.session.save()
-
-            # response["user_id"] = client.session.client.user_id
-
-            await self._pool.send_task(client, message)
