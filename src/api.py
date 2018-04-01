@@ -15,9 +15,7 @@ class API(object):
     def __init__(self, pool: Pool):
         self._config = json.loads(open("config.json").read())["API"]
         self._pool = pool
-        self.routes = [
-            web.get(self._config["endpoint"], self.process_client)
-        ]
+        self.routes = [web.get(self._config["endpoint"], self.process_client)]
 
     @staticmethod
     def _log(message):
@@ -91,6 +89,7 @@ class API(object):
                 expiration=datetime.datetime.now() + datetime.timedelta(days=2)
             )
             self._pool.sessions[client.session.session_id] = client
+
             response["session_id"] = client.session.session_id
 
         else:
@@ -104,13 +103,15 @@ class API(object):
     async def _client_auth(self, client: ClientConnection, message: dict):
         response = {
             "id": message["id"],
-            "action": message["action"]}
+            "action": message["action"],
+        }
 
         if "session_id" not in message:
             await client.send_error("session_id is missing")
 
         elif message["session_id"] != client.session.session_id:
             self._log("Bad authentication from client")
+
             response["user_id"] = None
             await client.send_response(response)
 
@@ -118,7 +119,6 @@ class API(object):
             self._log("Successful authentication from client")
 
             client.session.client = Client.create(user_id=random.randint(10000, 99999))
-
             client.session.save()
 
             response["user_id"] = client.session.client.user_id

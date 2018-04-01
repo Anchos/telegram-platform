@@ -11,9 +11,7 @@ from .models import Task
 class Pool(object):
     def __init__(self):
         self._config = json.loads(open("config.json").read())["pool"]
-        self.routes = [
-            web.get(self._config["endpoint"], self.process_bot)
-        ]
+        self.routes = [web.get(self._config["endpoint"], self.process_bot)]
         self._pending_tasks = Task.get_uncompleted()
         self._log("Pending tasks %s" % self._pending_tasks)
         self.sessions = {}
@@ -73,6 +71,7 @@ class Pool(object):
 
         if len(self._pending_tasks) > 0:
             self._log("Sending pending tasks")
+
             for task in self._pending_tasks:
                 await bot.send_task(task)
 
@@ -80,10 +79,12 @@ class Pool(object):
 
             if message.type == WSMsgType.text:
                 self._log("Bot send %s" % message.data)
+
                 await self._process_message(bot, message.data)
 
             elif message.type == WSMsgType.CLOSE or message.type == WSMsgType.ERROR:
                 self._log("Bot disconnected")
+
                 await ws.close()
                 self._bots.remove(bot)
 
@@ -95,6 +96,8 @@ class Pool(object):
 
         if message["session_id"] not in self.sessions:
             self._log("Response ready but client not found")
+
         else:
             self._log("Response ready and sent to client")
+
             await self.sessions[message["session_id"]].send_response(message)
