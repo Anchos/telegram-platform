@@ -6,7 +6,7 @@ let log = (t, err) => {
     document.getElementById('console').appendChild(e)
 };
 
-let url = 'ws://localhost:5000/client';
+let url = 'ws://0.0.0.0:5000/client';
 let ws = new WebSocket(url);
 
 ws.onopen = () => log(`Connected to ${url}`);

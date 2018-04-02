@@ -6,7 +6,7 @@
   "API": {
     "endpoint": "/client",
     "ping_enabled": true,
-    "ping_interval": 5.0
+    "ping_interval": 10.0
   },
   "pool": {
     "endpoint": "/bot",
@@ -14,10 +14,10 @@
     "ping_interval": 30.0
   },
   "DB": {
-    "database": "telegram_platform",
+    "database": "postgres",
     "host": "0.0.0.0",
     "port": 5432,
-    "user": "tpu",
-    "password": "tpu_def_pass"
+    "user": "postgres",
+    "password": "test"
   }
 }
