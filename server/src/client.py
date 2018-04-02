@@ -11,7 +11,7 @@ class ClientConnection(object):
         self.session = session
 
     @staticmethod
-    def _log(message):
+    def _log(message: str):
         logging.info("[CLIENT] %s" % message)
 
     async def send_response(self, response: dict):

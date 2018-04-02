@@ -18,7 +18,7 @@ class Pool(object):
         self._bots = []
 
     @staticmethod
-    def _log(message):
+    def _log(message: str):
         logging.info("[POOL] %s" % message)
 
     def _get_optimal_bot(self) -> BotConnection:
@@ -61,12 +61,12 @@ class Pool(object):
 
         self._log("New bot connection")
 
-        ws = web.WebSocketResponse(
+        connection = web.WebSocketResponse(
             heartbeat=self._config["ping_interval"] if self._config["ping_enabled"] else None
         )
-        await ws.prepare(request)
+        await connection.prepare(request)
 
-        bot = BotConnection(connection=ws)
+        bot = BotConnection(connection=connection)
         self._bots.append(bot)
 
         if len(self._pending_tasks) > 0:
@@ -75,20 +75,20 @@ class Pool(object):
             for task in self._pending_tasks:
                 await bot.send_task(task)
 
-        async for message in ws:
+        async for message in connection:
 
             if message.type == WSMsgType.text:
-                self._log("Bot send %s" % message.data)
+                self._log("Bot sent %s" % message.data)
 
                 await self._process_message(bot, message.data)
 
-            elif message.type == WSMsgType.CLOSE or message.type == WSMsgType.ERROR:
+            else:
                 self._log("Bot disconnected")
 
-                await ws.close()
+                await connection.close()
                 self._bots.remove(bot)
 
-        return ws
+        return connection
 
     async def _process_message(self, bot: BotConnection, message: str):
         bot.tasks -= 1

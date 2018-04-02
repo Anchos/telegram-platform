@@ -17,7 +17,7 @@ class API(object):
         self.routes = [web.get(self._config["endpoint"], self.process_client)]
 
     @staticmethod
-    def _log(message):
+    def _log(message: str):
         logging.info("[API] %s" % message)
 
     async def process_client(self, request: web.Request) -> web.WebSocketResponse:
@@ -33,10 +33,10 @@ class API(object):
         async for message in ws:
 
             if message.type == WSMsgType.TEXT:
-                self._log("Client send %s" % message.data)
+                self._log("Client sent %s" % message.data)
                 await self._process_message(client, message.data)
 
-            elif message.type == WSMsgType.CLOSE or message.type == WSMsgType.ERROR:
+            else:
                 self._log("Client disconnected")
                 await ws.close()
 
