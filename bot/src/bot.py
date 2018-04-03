@@ -8,7 +8,8 @@ from .worker import Worker
 
 class Bot(object):
     def __init__(self, worker: Worker):
-        self._config = json.loads(open("config.json").read())["bot"]
+        with open("config.json") as file:
+            self._config = json.loads(file.read())["bot"]
         self._app = web.Application()
         self._app.add_routes([
             web.get(self._config["webhook_endpoint"], self._process_update)
