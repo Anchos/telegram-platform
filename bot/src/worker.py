@@ -8,7 +8,7 @@ import aiohttp
 class Worker(object):
     def __init__(self):
         with open("config.json") as file:
-        self._config = json.loads(file.read())["worker"]
+            self._config = json.loads(file.read())["worker"]
         self._pool_url = "http://{0}:{1}{2}".format(
             self._config["pool_host"],
             self._config["pool_port"],

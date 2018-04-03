@@ -10,7 +10,8 @@ from .models import Task
 
 class Pool(object):
     def __init__(self):
-        self._config = json.loads(open("config.json").read())["pool"]
+        with open("config.json") as file:
+            self._config = json.loads(file.read())["pool"]
         self.routes = [web.get(self._config["endpoint"], self.process_bot)]
         self._pending_tasks = Task.get_uncompleted()
         self._log("Pending tasks %s" % self._pending_tasks)

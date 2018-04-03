@@ -9,10 +9,10 @@ from .client import ClientConnection
 from .models import Session
 from .pool import Pool
 
-
 class API(object):
     def __init__(self, pool: Pool):
-        self._config = json.loads(open("config.json").read())["API"]
+        with open("config.json") as file:
+            self._config = json.loads(file.read())["API"]
         self._pool = pool
         self.routes = [web.get(self._config["endpoint"], self.process_client)]
 
