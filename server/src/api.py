@@ -6,31 +6,33 @@ import uuid
 from aiohttp import web, WSMsgType
 
 from .client import ClientConnection
+from .dispatcher import Dispatcher
 from .models import Session
 from .pool import Pool
 
+
 class API(object):
-    def __init__(self, pool: Pool):
-        with open("config.json") as file:
-            self._config = json.loads(file.read())["API"]
+    def __init__(self, pool: Pool, dispatcher: Dispatcher):
+        self._config = json.loads(open("config.json").read())["API"]
         self._pool = pool
-        self.routes = [web.get(self._config["endpoint"], self.process_client)]
+        self._dispatcher = dispatcher
+        self.routes = [web.get(self._config["endpoint"], self.process_client_connection)]
 
     @staticmethod
     def _log(message: str):
         logging.info("[API] %s" % message)
 
-    async def process_client(self, request: web.Request) -> web.WebSocketResponse:
-        self._log("New client connection")
+    async def process_client_connection(self, request: web.Request) -> web.WebSocketResponse:
+        self._log("New client connected")
 
-        ws = web.WebSocketResponse(
+        connection = web.WebSocketResponse(
             heartbeat=self._config["ping_interval"] if self._config["ping_enabled"] else None)
 
-        await ws.prepare(request)
+        await connection.prepare(request)
 
-        client = ClientConnection(connection=ws)
+        client = ClientConnection(connection=connection)
 
-        async for message in ws:
+        async for message in connection:
 
             if message.type == WSMsgType.TEXT:
                 self._log("Client sent %s" % message.data)
@@ -38,12 +40,12 @@ class API(object):
 
             else:
                 self._log("Client disconnected")
-                await ws.close()
+                await connection.close()
 
-        return ws
+        return connection
 
     @staticmethod
-    async def _validate_message(message: dict) -> str:
+    def _validate_message(message: dict) -> str:
         if "id" not in message or not isinstance(message["id"], int):
             return "id is missing"
 
@@ -54,19 +56,28 @@ class API(object):
         try:
             message = json.loads(message)
         except:
+            self._log("Client sent bad JSON")
             await client.send_error("bad JSON")
 
-        error = await self._validate_message(message)
+        error = self._validate_message(message)
         if error is not None:
-            self._log("Client send bad request: %s" % error)
+            self._log("Client sent bad request: %s" % error)
             await client.send_error(error)
+            return
 
-        elif message["action"] == "INIT":
+        if message["action"] == "INIT":
             self._log("INIT request")
+
             await self._client_init(client, message)
+
+        elif message["action"] == "DISPATCH":
+            self._log("DISPATCH request")
+
+            await self._dispatcher.dispatch(message)
 
         else:
             self._log("%s request" % message["action"])
+
             await self._pool.send_task(client.session, message)
 
     async def _client_init(self, client: ClientConnection, message: dict):

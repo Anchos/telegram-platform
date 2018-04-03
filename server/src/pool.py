@@ -10,9 +10,8 @@ from .models import Task
 
 class Pool(object):
     def __init__(self):
-        with open("config.json") as file:
-            self._config = json.loads(file.read())["pool"]
-        self.routes = [web.get(self._config["endpoint"], self.process_bot)]
+        self._config = json.loads(open("config.json").read())["pool"]
+        self.routes = [web.get(self._config["endpoint"], self.process_bot_connection)]
         self._pending_tasks = Task.get_uncompleted()
         self._log("Pending tasks %s" % self._pending_tasks)
         self.sessions = {}
@@ -51,16 +50,20 @@ class Pool(object):
         for bot in self._bots:
             try:
                 await bot.send_json(message)
-            except RuntimeError as e:
-                self._log(e)
+            except:
+                self._log("Bot disconnected due to error")
                 self._bots.remove(bot)
-            except ValueError as e:
-                self._log(e)
 
-    async def process_bot(self, request: web.Request) -> web.WebSocketResponse:
+    async def send_pending_tasks(self, bot: BotConnection):
+        self._log("Sending pending tasks")
+
+        for task in self._pending_tasks:
+            await bot.send_task(task)
+
+    async def process_bot_connection(self, request: web.Request) -> web.WebSocketResponse:
         """Appends bot to the pool and listens to incoming messages"""
 
-        self._log("New bot connection")
+        self._log("New bot connected")
 
         connection = web.WebSocketResponse(
             heartbeat=self._config["ping_interval"] if self._config["ping_enabled"] else None
@@ -71,17 +74,14 @@ class Pool(object):
         self._bots.append(bot)
 
         if len(self._pending_tasks) > 0:
-            self._log("Sending pending tasks")
-
-            for task in self._pending_tasks:
-                await bot.send_task(task)
+            self.send_pending_tasks(bot)
 
         async for message in connection:
 
             if message.type == WSMsgType.text:
                 self._log("Bot sent %s" % message.data)
 
-                await self._process_message(bot, message.data)
+                await self._process_message(message.data)
 
             else:
                 self._log("Bot disconnected")
@@ -91,9 +91,20 @@ class Pool(object):
 
         return connection
 
-    async def _process_message(self, bot: BotConnection, message: str):
-        bot.tasks -= 1
-        message = json.loads(message)
+    @staticmethod
+    def _validate_message(message: dict) -> str:
+        if "session_id" not in message:
+            return "session_id is missing"
+
+    async def _process_message(self, message: str):
+        try:
+            message = json.loads(message)
+        except:
+            self._log("Bot sent bad JSON")
+
+        error = self._validate_message(message)
+        if error is not None:
+            self._log("Bot sent bad JSON %s" % error)
 
         if message["session_id"] not in self.sessions:
             self._log("Response ready but client not found")

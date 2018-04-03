@@ -1,14 +1,22 @@
 {
-  "worker": {
+  "base_bot": {
     "pool_host": "0.0.0.0",
     "pool_port": 5000,
     "pool_endpoint": "/bot"
   },
-  "bot": {
+  "dispatcher": {
+    "pool_endpoint": "/dispatcher"
+  },
+  "telegram_bot": {
     "webhook_host": "0.0.0.0",
     "webhook_port": 8443,
     "webhook_endpoint": "/",
     "webhook_public_key": "public.pem",
     "webhook_private_key": "private.key"
+  },
+  "telegram_client": {
+    "field_1": "...",
+    "field_2": "...",
+    "field_3": "..."
   }
 }

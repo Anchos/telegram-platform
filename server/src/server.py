@@ -6,8 +6,7 @@ from aiohttp import web
 
 class Server(object):
     def __init__(self):
-        with open("config.json") as file:
-            self._config = json.loads(file.read())["server"]
+        self._config = json.loads(open("config.json").read())["server"]
         self._app = web.Application()
 
     @staticmethod
