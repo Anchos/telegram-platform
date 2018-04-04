@@ -8,7 +8,7 @@
     "pool_endpoint": "/dispatcher"
   },
   "telegram_bot": {
-    "bot_token": "565797436:AAGfT6-vGZje6eX2LesWuhgJ322txXxq26I",
+    "bot_token": "000000000:AAAAAA-xxxxxxxxxxxxxxxxxxxxxxxxxxxx",
     "webhook_host": "0.0.0.0",
     "webhook_port": 8443,
     "webhook_endpoint": "/webhook",
