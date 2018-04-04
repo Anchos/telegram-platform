@@ -29,7 +29,7 @@ class TelegramBot(BaseBot):
                     self._config["webhook_endpoint"],
                 )
             },
-            files={"certificate": open(self._config["webhook_public_key"], "rb")}
+            files={"certificate": open(self._config["webhook_public_key"])}
         )
         self._log(response.text)
 
@@ -55,8 +55,6 @@ class TelegramBot(BaseBot):
         )
 
     def run(self):
-        # super().run()
-        # self.setup_webhook()
         multiprocessing.Process(target=self.run_webhook_listener).start()
 
     async def process_update(self, request: web.Request) -> web.Response:

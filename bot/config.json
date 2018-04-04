@@ -12,8 +12,8 @@
     "webhook_host": "159.65.126.202",
     "webhook_port": 8443,
     "webhook_endpoint": "/webhook",
-    "webhook_public_key": "./public.pem",
-    "webhook_private_key": "./private.key"
+    "webhook_public_key": "public.pem",
+    "webhook_private_key": "private.key"
   },
   "telegram_client": {
     "field_1": "...",
