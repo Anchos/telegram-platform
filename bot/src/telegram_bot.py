@@ -29,16 +29,19 @@ class TelegramBot(BaseBot):
                     self._config["webhook_endpoint"],
                 )
             },
-            files={"certificate": open(self._config["webhook_public_key"])}
+            files={"certificate": open(self._config["webhook_public_key"], "rb")}
         )
         self._log(response.text)
 
     def run_webhook_listener(self):
         asyncio.set_event_loop(asyncio.new_event_loop())
+        super().run()
+        self.setup_webhook()
         app = web.Application()
         app.add_routes([web.post(self._config["webhook_endpoint"], self.process_update)])
 
-        ssl_context = ssl.create_default_context()
+        ssl_context = ssl.SSLContext()
+
         ssl_context.load_cert_chain(
             self._config["webhook_public_key"],
             self._config["webhook_private_key"],
@@ -52,14 +55,23 @@ class TelegramBot(BaseBot):
         )
 
     def run(self):
-        super().run()
-        self.setup_webhook()
+        # super().run()
+        # self.setup_webhook()
         multiprocessing.Process(target=self.run_webhook_listener).start()
 
     async def process_update(self, request: web.Request) -> web.Response:
-        self._log("Telegram sent %s" % request.text())
+        self._log("Telegram sent %s" % await request.text())
 
-        return web.Response(status=200)
+        update = json.loads(await request.text())["message"]
+
+        await self.send_to_server({
+            "session_id": update["text"].split(" ")[1],
+            "user_id": update["from"]["id"],
+            "first_name": update["from"]["first_name"],
+            "username": update["from"]["username"],
+        })
+
+        return web.Response()
 
     async def process_message(self, message: dict):
         pass
