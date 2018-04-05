@@ -102,3 +102,7 @@ ENV/
 
 # config
 #config.json
+
+# vscode & idea
+.vscode/
+.idea/
