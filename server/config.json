@@ -1,0 +1,28 @@
+{
+  "server": {
+    "host": "0.0.0.0",
+    "port": 5000
+  },
+  "API": {
+    "endpoint": "/client",
+    "ping_enabled": true,
+    "ping_interval": 10.0
+  },
+  "pool": {
+    "endpoint": "/bot",
+    "ping_enabled": true,
+    "ping_interval": 30.0
+  },
+  "dispatcher": {
+    "endpoint": "/dispatcher",
+    "ping_enabled": true,
+    "ping_interval": 30.0
+  },
+  "DB": {
+    "database": "postgres",
+    "host": "0.0.0.0",
+    "port": 5432,
+    "user": "postgres",
+    "password": "test"
+  }
+}
