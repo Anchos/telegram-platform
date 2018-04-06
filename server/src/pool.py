@@ -10,7 +10,8 @@ from .models import Task
 
 class Pool(object):
     def __init__(self):
-        self._config = json.loads(open("config.json").read())["pool"]
+        with open("config.json") as file:
+            self._config = json.loads(file.read())["pool"]
         self.routes = [web.get(self._config["endpoint"], self.process_bot_connection)]
         self._pending_tasks = Task.get_uncompleted()
         self._log("Pending tasks %s" % self._pending_tasks)
@@ -38,14 +39,14 @@ class Pool(object):
 
         if len(self._bots) == 0:
             self._log("No available bots. Caching task")
-            await client_connection.send_error("no available bots")
+            await client_connection.send_error("no_available_bots")
             self._pending_tasks.append(task)
 
         else:
             await self._get_optimal_bot().send_task(task)
 
     async def broadcast(self, message: str):
-        """Sends a message to all connected clients"""
+        """Sends a message to all connected bots"""
 
         for bot in self._bots:
             try:
@@ -94,22 +95,23 @@ class Pool(object):
     @staticmethod
     def _validate_message(message: dict) -> str:
         if "session_id" not in message:
-            return "session_id is missing"
+            return "session_id_missing"
 
     async def _process_message(self, message: str):
         try:
             message = json.loads(message)
         except:
             self._log("Bot sent bad JSON")
+            return "bad_json"
 
         error = self._validate_message(message)
         if error is not None:
             self._log("Bot sent bad JSON %s" % error)
+            return error
 
         if message["session_id"] not in self.sessions:
             self._log("Response ready but client not found")
-
+            return "client_not_found"
         else:
             self._log("Response ready and sent to client")
-
             await self.sessions[message["session_id"]].send_response(message)

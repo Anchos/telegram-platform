@@ -13,7 +13,8 @@ from .pool import Pool
 
 class API(object):
     def __init__(self, pool: Pool, dispatcher: Dispatcher):
-        self._config = json.loads(open("config.json").read())["API"]
+        with open("config.json") as file:
+            self._config = json.loads(file.read())["API"]
         self._pool = pool
         self._dispatcher = dispatcher
         self.routes = [web.get(self._config["endpoint"], self.process_client_connection)]

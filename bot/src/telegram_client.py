@@ -7,7 +7,11 @@ from .base_bot import BaseBot
 class TelegramClient(BaseBot):
     def __init__(self, config: dict = None):
         super().__init__(self.process_message)
-        self._config = config if config is not None else json.loads(open("config.json").read())["telegram_client"]
+        if config is not None:
+            self._config = config
+        else:
+            with open("config.json") as file:
+                self._config.update(json.loads(file.read())["telegram_bot"])
 
     @staticmethod
     def _log(message: str):

@@ -6,7 +6,8 @@ from aiohttp import web, WSMsgType
 
 class Dispatcher(object):
     def __init__(self):
-        self._config = json.loads(open("config.json").read())["dispatcher"]
+        with open("config.json") as file:
+            self._config = json.loads(file.read())["dispatcher"]
         self.routes = [web.get(self._config["endpoint"], self.process_dispatcher_connection)]
         self._dispatcher_connection = None
 
