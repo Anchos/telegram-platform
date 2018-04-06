@@ -10,12 +10,13 @@ from .telegram_client import TelegramClient
 class DispatcherBot(BaseBot):
     def __init__(self):
         super().__init__(self.process_message)
-        self.config = json.loads(open("config.json").read())["dispatcher"]
+        with open("config.json") as file:
+            self._config.update(json.loads(file.read())["dispatcher"])
 
         self._pool_url = "http://{0}:{1}{2}".format(
             self._config["pool_host"],
             self._config["pool_port"],
-            self.config["pool_endpoint"],
+            self._config["pool_endpoint"],
         )
 
     @staticmethod
@@ -24,7 +25,6 @@ class DispatcherBot(BaseBot):
 
     def run(self):
         super().run()
-
         asyncio.get_event_loop().run_forever()
 
     async def process_message(self, message: dict):
