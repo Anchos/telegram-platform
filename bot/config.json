@@ -9,6 +9,7 @@
   },
   "telegram_bot": {
     "bot_token": "565797436:AAGfT6-vGZje6eX2LesWuhgJ322txXxq26I",
+    "bot_mode": "local",
     "webhook_host": "159.65.126.202",
     "webhook_port": 8443,
     "webhook_endpoint": "/webhook",
