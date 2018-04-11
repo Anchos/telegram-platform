@@ -10,12 +10,15 @@ from .models import Task
 
 class Pool(object):
     def __init__(self):
-        with open("config.json") as file:
-            self._config = json.loads(file.read())["pool"]
+        file = open("config.json")
+        self._config = json.loads(file.read())["pool"]
+        file.close()
+
         self.routes = [web.get(self._config["endpoint"], self.process_bot_connection)]
         self._pending_tasks = Task.get_uncompleted()
         self._log("Pending tasks %s" % self._pending_tasks)
-        self.sessions = {}
+
+        self.clients = {}
         self._bots = []
 
     @staticmethod
@@ -23,31 +26,27 @@ class Pool(object):
         logging.info("[POOL] %s" % message)
 
     def _get_optimal_bot(self) -> BotConnection:
-        """Sort bots by current number of tasks and return the one with least tasks"""
-
         self._bots.sort(key=lambda x: x.tasks, reverse=True)
         self._bots[0].tasks += 1
 
         return self._bots[0]
 
-    async def send_task(self, client_connection: ClientConnection, task: dict):
-        """Adds new task to DB and sends it to Bot"""
-
+    async def send_task(self, client: ClientConnection, task: dict):
         Task.create(
-            session=client_connection.session,
-            data=task)
+            session=client.session,
+            connection_id=client.connection_id,
+            data=task,
+        )
 
         if len(self._bots) == 0:
             self._log("No available bots. Caching task")
-            await client_connection.send_error("no_available_bots")
+            await client.send_error("no available bots")
             self._pending_tasks.append(task)
 
         else:
             await self._get_optimal_bot().send_task(task)
 
     async def broadcast(self, message: str):
-        """Sends a message to all connected bots"""
-
         for bot in self._bots:
             try:
                 await bot.send_json(message)
@@ -62,8 +61,6 @@ class Pool(object):
             await bot.send_task(task)
 
     async def process_bot_connection(self, request: web.Request) -> web.WebSocketResponse:
-        """Appends bot to the pool and listens to incoming messages"""
-
         self._log("New bot connected")
 
         connection = web.WebSocketResponse(
@@ -92,26 +89,15 @@ class Pool(object):
 
         return connection
 
-    @staticmethod
-    def _validate_message(message: dict) -> str:
-        if "session_id" not in message:
-            return "session_id_missing"
-
     async def _process_message(self, message: str):
-        try:
-            message = json.loads(message)
-        except:
-            self._log("Bot sent bad JSON")
-            return "bad_json"
+        message = json.loads(message)
 
-        error = self._validate_message(message)
-        if error is not None:
-            self._log("Bot sent bad JSON %s" % error)
-            return error
+        if message["session_id"] not in self.clients:
+            self._log("Response ready but session doesn't exist")
 
-        if message["session_id"] not in self.sessions:
-            self._log("Response ready but client not found")
-            return "client_not_found"
+        elif message["connection_id"] not in self.clients[message["session_id"]]:
+            self._log("Response ready but client doesn't exist")
+
         else:
             self._log("Response ready and sent to client")
-            await self.sessions[message["session_id"]].send_response(message)
+            await self.clients[message["session_id"]][message["connection_id"]].send_response(message)

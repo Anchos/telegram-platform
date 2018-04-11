@@ -25,6 +25,7 @@ class Session(peewee.Model):
 
 class Task(peewee.Model):
     session = peewee.ForeignKeyField(Session, null=False)
+    connection_id = peewee.CharField(unique=False, null=False)
     data = peewee.TextField(null=False)
     completed = peewee.BooleanField(default=False, null=False)
 

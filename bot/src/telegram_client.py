@@ -12,6 +12,7 @@ class TelegramClient(BaseBot):
         else:
             with open("config.json") as file:
                 self._config.update(json.loads(file.read())["telegram_bot"])
+                file.close()
 
     @staticmethod
     def _log(message: str):

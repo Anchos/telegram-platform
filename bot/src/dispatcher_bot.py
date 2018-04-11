@@ -10,8 +10,9 @@ from .telegram_client import TelegramClient
 class DispatcherBot(BaseBot):
     def __init__(self):
         super().__init__(self.process_message)
-        with open("config.json") as file:
-            self._config.update(json.loads(file.read())["dispatcher"])
+        file = open("config.json")
+        self._config.update(json.loads(file.read())["dispatcher"])
+        file.close()
 
         self._pool_url = "http://{0}:{1}{2}".format(
             self._config["pool_host"],

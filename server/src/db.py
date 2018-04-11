@@ -4,6 +4,7 @@ import peewee
 
 with open("config.json") as file:
     config = json.loads(file.read())["DB"]
+    file.close()
 
 db = peewee.PostgresqlDatabase(
     database=config["database"],

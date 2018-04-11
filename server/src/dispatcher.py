@@ -8,6 +8,8 @@ class Dispatcher(object):
     def __init__(self):
         with open("config.json") as file:
             self._config = json.loads(file.read())["dispatcher"]
+            file.close()
+
         self.routes = [web.get(self._config["endpoint"], self.process_dispatcher_connection)]
         self._dispatcher_connection = None
 

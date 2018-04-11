@@ -7,8 +7,10 @@ import aiohttp
 
 class BaseBot(object):
     def __init__(self, process_message: callable):
-        with open("config.json") as file:
-            self._config = json.loads(file.read())["base_bot"]
+        file = open("config.json")
+        self._config = json.loads(file.read())["base_bot"]
+        file.close()
+
         self._pool_url = "http://{0}:{1}{2}".format(
             self._config["pool_host"],
             self._config["pool_port"],
