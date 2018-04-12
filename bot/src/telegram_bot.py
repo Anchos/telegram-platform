@@ -83,6 +83,7 @@ class TelegramBot(BaseBot):
                 "user_id": update["from"]["id"],
                 "first_name": update["from"]["first_name"],
                 "username": update["from"]["username"],
+                "language_code": update["from"]["language_code"],
             }
 
             self._log("Response: %s" % response)

@@ -75,17 +75,14 @@ class Pool(object):
             self.send_pending_tasks(bot)
 
         async for message in connection:
-
             if message.type == WSMsgType.text:
                 self._log("Bot sent %s" % message.data)
 
                 await self._process_message(message.data)
 
-            else:
-                self._log("Bot disconnected")
+        self._log("Bot disconnected")
 
-                await connection.close()
-                self._bots.remove(bot)
+        self._bots.remove(bot)
 
         return connection
 
