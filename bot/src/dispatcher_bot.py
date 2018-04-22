@@ -28,7 +28,8 @@ class DispatcherBot(BaseBot):
         super().run()
         asyncio.get_event_loop().run_forever()
 
-    async def process_message(self, message: dict):
+    @staticmethod
+    async def process_message(message: dict):
         if message["action"] == "DISPATCH":
 
             if message["type"] == "telegram_bot":

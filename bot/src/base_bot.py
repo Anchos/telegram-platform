@@ -25,6 +25,7 @@ class BaseBot(object):
 
     def run(self):
         self._log("STARTING")
+
         loop = asyncio.get_event_loop()
         loop.create_task(self.connect_to_server())
 
@@ -32,10 +33,13 @@ class BaseBot(object):
         await self._server_connection.send_json(message)
 
     async def connect_to_server(self):
-        self._server_connection = await aiohttp.ClientSession().ws_connect(self._pool_url)
+        self._server_connection = await aiohttp.ClientSession().ws_connect(
+            url=self._pool_url,
+            autoping=True,
+        )
 
         async for message in self._server_connection:
             if message.type == aiohttp.WSMsgType.TEXT:
                 self._log("Server sent %s" % message.data)
-                message = json.loads(message.data)
-                await self._process_message(message)
+
+                await self._process_message(json.loads(message.data))

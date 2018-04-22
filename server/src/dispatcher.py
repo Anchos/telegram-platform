@@ -21,7 +21,8 @@ class Dispatcher(object):
         self._log("New dispatcher connected")
 
         connection = web.WebSocketResponse(
-            heartbeat=self._config["ping_interval"] if self._config["ping_enabled"] else None
+            heartbeat=self._config["ping_interval"] if self._config["ping_enabled"] else None,
+            receive_timeout=self._config["receive_timeout"] if self._config["ping_enabled"] else None,
         )
         await connection.prepare(request)
 

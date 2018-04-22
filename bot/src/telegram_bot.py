@@ -37,12 +37,15 @@ class TelegramBot(BaseBot):
             },
             files={"certificate": open(self._config["webhook_public_key"])}
         )
-        self._log(response.text)
+        self._log("Webhook setup: %s" % response.json())
 
     def run_webhook_listener(self):
         asyncio.set_event_loop(asyncio.new_event_loop())
+
         super().run()
+
         self.setup_webhook()
+
         app = web.Application()
         app.add_routes([web.post(self._config["webhook_endpoint"], self.process_update)])
 
@@ -63,34 +66,120 @@ class TelegramBot(BaseBot):
     def run(self):
         multiprocessing.Process(target=self.run_webhook_listener).start()
 
+    def send_telegram_request(self, method, payload) -> dict:
+        response = requests.post(
+            url="https://api.telegram.org/bot{0}/{1}".format(self._config["bot_token"], method),
+            data=payload,
+        )
+
+        self._log("Telegram API response: %s" % response.json())
+
+        return response.json()
+
     async def process_update(self, request: web.Request) -> web.Response:
         self._log("Telegram sent %s" % await request.text())
 
         update = json.loads(await request.text())["message"]
 
-        text = update["text"].split(" ")
-        command = text[0]
+        try:
+            text = update["text"].split(" ")
+            command = text[0]
 
-        if command == "/start":
-            session_id = text[1].split("_")[0]
-            connection_id = text[1].split("_")[1]
+            if command == "/start":
+                session_id = text[1].split("_")[0]
+                connection_id = text[1].split("_")[1]
 
-            response = {
-                "action": "AUTH",
-                "type": "EVENT",
-                "session_id": session_id,
-                "connection_id": connection_id,
-                "user_id": update["from"]["id"],
-                "first_name": update["from"]["first_name"],
-                "username": update["from"]["username"],
-                "language_code": update["from"]["language_code"],
-            }
+                response = {
+                    "action": "AUTH",
+                    "type": "EVENT",
+                    "session_id": session_id,
+                    "connection_id": connection_id,
+                    "user_id": update["from"]["id"],
+                    "first_name": update["from"]["first_name"],
+                    "username": update["from"]["username"],
+                    "language_code": update["from"]["language_code"],
+                }
 
-            self._log("Response: %s" % response)
+                avatar_file_id = self.send_telegram_request(
+                    "getUserProfilePhotos",
+                    {"user_id": update["from"]["id"], "limit": 1},
+                )["result"]["photos"][0][2]["file_id"]
 
-            await self.send_to_server(response)
+                file_path = self.send_telegram_request(
+                    "getFile",
+                    {"file_id": avatar_file_id}
+                )["result"]["file_path"]
+
+                response["avatar"] = "https://api.telegram.org/file/bot{0}/{1}".format(
+                    self._config["bot_token"],
+                    file_path,
+                )
+
+                await self.send_to_server(response)
+        except Exception as e:
+            self._log(str(e))
 
         return web.Response()
 
     async def process_message(self, message: dict):
-        pass
+        if message["action"] == "FETCH":
+            if message["type"] == "CHANNELS":
+                channels = requests.post("https://tgstat.ru/en/channels/list").json()["items"]["list"]
+
+                for x in range(len(channels)):
+                    channels[x] = {
+                        "name": channels[x]["title"],
+                        "link": channels[x]["username"],
+                        "photo": channels[x]["photo"],
+                        "category": channels[x]["category"],
+                        "members": channels[x]["members"],
+                        "members_growth": channels[x]["members_growth"],
+                        "views": channels[x]["views"],
+                        "views_growth_percent": channels[x]["views_growth_percent"],
+                        "views_per_post": channels[x]["views_per_post"],
+                    }
+
+                    message["data"] = {
+                        "channels": channels
+                    }
+
+                await self.send_to_server(message)
+
+            elif message["type"] == "BOTS":
+                bots = requests.get("https://storebot.me/api/bots?list=top&languages=russian&count=100").json()
+
+                for x in range(len(bots)):
+                    bots[x] = {
+                        "name": bots[x]["name"],
+                        "link": bots[x]["link"],
+                        "photo": bots[x]["photo"].replace("[WIDTH]x[HEIGHT]", "120x120") if "photo" in bots[
+                            x] else None,
+                        "description": bots[x]["description"] if "description" in bots[x] else None,
+                        "category": bots[x]["categoryId"] if "categoryId" in bots[x] else None,
+                    }
+
+                message["data"] = {
+                    "bots": bots
+                }
+
+                await self.send_to_server(message)
+
+            elif message["type"] == "STICKERS":
+                stickers = requests.get(
+                    "https://tlgrm.ru/stickers?page=0&ajax=true",
+                    headers={"X-Requested-With": "XMLHttpRequest"}).json()["data"]
+
+                for x in range(len(stickers)):
+                    stickers[x] = {
+                        "name": stickers[x]["name"],
+                        "link": stickers[x]["link"],
+                        "count": stickers[x]["count"],
+                        "installs": stickers[x]["installs"],
+                        "lang": stickers[x]["lang"],
+                    }
+
+                message["data"] = {
+                    "stickers": stickers
+                }
+
+                await self.send_to_server(message)

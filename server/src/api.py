@@ -64,7 +64,8 @@ class API(object):
         self._log("New client connected")
 
         connection = web.WebSocketResponse(
-            heartbeat=self._config["ping_interval"] if self._config["ping_enabled"] else None
+            heartbeat=self._config["ping_interval"] if self._config["ping_enabled"] else None,
+            receive_timeout=self._config["receive_timeout"] if self._config["ping_enabled"] else None,
         )
 
         await connection.prepare(request)
@@ -104,14 +105,15 @@ class API(object):
             await client.send_error(error)
             return
 
-        if message["action"] == "INIT":
-            self._log("INIT request")
+        self._log("%s request" % message["action"])
 
+        if message["action"] == "INIT":
             await self._client_init(client, message)
 
-        elif message["action"] == "DISPATCH":
-            self._log("DISPATCH request")
+        elif message["action"] == "FETCH":
+            await self._fetch(client, message)
 
+        elif message["action"] == "DISPATCH":
             await self._dispatcher.dispatch(message)
 
         else:
@@ -146,3 +148,8 @@ class API(object):
         response["connection_id"] = client.connection_id
 
         await client.send_response(response)
+
+    async def _fetch(self, client: ClientConnection, message: dict):
+        message["session_id"] = client.session.session_id
+        message["connection_id"] = client.connection_id
+        await self._pool.send_task(client, message)

@@ -25,12 +25,6 @@ class Pool(object):
     def _log(message: str):
         logging.info("[POOL] %s" % message)
 
-    def _get_optimal_bot(self) -> BotConnection:
-        self._bots.sort(key=lambda x: x.tasks, reverse=True)
-        self._bots[0].tasks += 1
-
-        return self._bots[0]
-
     async def send_task(self, client: ClientConnection, task: dict):
         Task.create(
             session=client.session,
@@ -40,11 +34,14 @@ class Pool(object):
 
         if len(self._bots) == 0:
             self._log("No available bots. Caching task")
+
             await client.send_error("no available bots")
             self._pending_tasks.append(task)
 
         else:
-            await self._get_optimal_bot().send_task(task)
+            bot = self._bots[0]
+            self._bots.remove(bot)
+            await bot.send_task(task)
 
     async def broadcast(self, message: str):
         for bot in self._bots:
@@ -52,6 +49,7 @@ class Pool(object):
                 await bot.send_json(message)
             except:
                 self._log("Bot disconnected due to error")
+
                 self._bots.remove(bot)
 
     async def send_pending_tasks(self, bot: BotConnection):
@@ -64,7 +62,8 @@ class Pool(object):
         self._log("New bot connected")
 
         connection = web.WebSocketResponse(
-            heartbeat=self._config["ping_interval"] if self._config["ping_enabled"] else None
+            heartbeat=self._config["ping_interval"] if self._config["ping_enabled"] else None,
+            receive_timeout=self._config["receive_timeout"] if self._config["ping_enabled"] else None,
         )
         await connection.prepare(request)
 
@@ -72,13 +71,14 @@ class Pool(object):
         self._bots.append(bot)
 
         if len(self._pending_tasks) > 0:
-            self.send_pending_tasks(bot)
+            # await self.send_pending_tasks(bot)
+            pass
 
         async for message in connection:
             if message.type == WSMsgType.text:
                 self._log("Bot sent %s" % message.data)
 
-                await self._process_message(message.data)
+                await self._process_message(bot, json.loads(message.data))
 
         self._log("Bot disconnected")
 
@@ -86,8 +86,8 @@ class Pool(object):
 
         return connection
 
-    async def _process_message(self, message: str):
-        message = json.loads(message)
+    async def _process_message(self, bot: BotConnection, message: dict):
+        self._bots.append(bot)
 
         if message["session_id"] not in self.clients:
             self._log("Response ready but session doesn't exist")

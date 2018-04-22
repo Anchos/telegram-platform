@@ -6,17 +6,17 @@
   "API": {
     "endpoint": "/client",
     "ping_enabled": true,
-    "ping_interval": 10.0
+    "ping_interval": 1.0
   },
   "pool": {
     "endpoint": "/bot",
     "ping_enabled": true,
-    "ping_interval": 30.0
+    "ping_interval": 1.0
   },
   "dispatcher": {
     "endpoint": "/dispatcher",
     "ping_enabled": true,
-    "ping_interval": 30.0
+    "ping_interval": 1.0
   },
   "DB": {
     "database": "telegram_platform",
