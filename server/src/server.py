@@ -8,6 +8,8 @@ class Server(object):
     def __init__(self):
         with open("config.json") as file:
             self._config = json.loads(file.read())["server"]
+            file.close()
+
         self._app = web.Application()
 
     @staticmethod

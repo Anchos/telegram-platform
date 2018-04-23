@@ -15,8 +15,7 @@ class Pool(object):
         file.close()
 
         self.routes = [web.get(self._config["endpoint"], self.process_bot_connection)]
-        self._pending_tasks = Task.get_uncompleted()
-        self._log("Pending tasks %s" % self._pending_tasks)
+        self._pending_tasks = []
 
         self.clients = {}
         self._bots = []
@@ -35,22 +34,12 @@ class Pool(object):
         if len(self._bots) == 0:
             self._log("No available bots. Caching task")
 
-            await client.send_error("no available bots")
             self._pending_tasks.append(task)
 
         else:
             bot = self._bots[0]
             self._bots.remove(bot)
             await bot.send_task(task)
-
-    async def broadcast(self, message: str):
-        for bot in self._bots:
-            try:
-                await bot.send_json(message)
-            except:
-                self._log("Bot disconnected due to error")
-
-                self._bots.remove(bot)
 
     async def send_pending_tasks(self, bot: BotConnection):
         self._log("Sending pending tasks")
@@ -63,16 +52,11 @@ class Pool(object):
 
         connection = web.WebSocketResponse(
             heartbeat=self._config["ping_interval"] if self._config["ping_enabled"] else None,
-            receive_timeout=self._config["receive_timeout"] if self._config["ping_enabled"] else None,
         )
         await connection.prepare(request)
 
         bot = BotConnection(connection=connection)
         self._bots.append(bot)
-
-        if len(self._pending_tasks) > 0:
-            # await self.send_pending_tasks(bot)
-            pass
 
         async for message in connection:
             if message.type == WSMsgType.text:
@@ -87,7 +71,9 @@ class Pool(object):
         return connection
 
     async def _process_message(self, bot: BotConnection, message: dict):
-        self._bots.append(bot)
+
+        if bot not in self._bots:
+            self._bots.append(bot)
 
         if message["session_id"] not in self.clients:
             self._log("Response ready but session doesn't exist")
@@ -98,3 +84,6 @@ class Pool(object):
         else:
             self._log("Response ready and sent to client")
             await self.clients[message["session_id"]][message["connection_id"]].send_response(message)
+
+        if len(self._pending_tasks) > 0:
+            await bot.send_task(self._pending_tasks.pop())

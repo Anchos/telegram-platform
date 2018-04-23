@@ -35,7 +35,7 @@ class BaseBot(object):
     async def connect_to_server(self):
         self._server_connection = await aiohttp.ClientSession().ws_connect(
             url=self._pool_url,
-            autoping=True,
+
         )
 
         async for message in self._server_connection:
