@@ -5,6 +5,10 @@ from .db import db
 
 class Client(peewee.Model):
     user_id = peewee.PrimaryKeyField(unique=True)
+    first_name = peewee.CharField(null=False)
+    username = peewee.CharField(null=True)
+    language_code = peewee.CharField(null=False)
+    avatar = peewee.CharField(null=True)
 
     class Meta:
         database = db

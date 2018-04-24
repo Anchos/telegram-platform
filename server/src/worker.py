@@ -1,7 +1,7 @@
 from aiohttp import web
 
 
-class BotConnection(object):
+class WorkerConnection(object):
     def __init__(self, connection: web.WebSocketResponse):
         """Creates bot with 0 tasks and provided connection"""
 

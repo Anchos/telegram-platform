@@ -1,8 +1,6 @@
 import logging
 
 from src.api import API
-from src.dispatcher import Dispatcher
-from src.pool import Pool
 from src.server import Server
 
 logging.basicConfig(
@@ -11,13 +9,7 @@ logging.basicConfig(
 
 if __name__ == "__main__":
     server = Server()
+    api = API()
 
-    pool = Pool()
-    dispatcher = Dispatcher()
-    api = API(pool, dispatcher)
-
-    server.add_routes(pool.routes)
-    server.add_routes(api.routes)
-    server.add_routes(dispatcher.routes)
-
+    server.add_routes(api.pool.routes)
     server.run()

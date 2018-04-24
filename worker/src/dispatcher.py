@@ -2,23 +2,19 @@ import asyncio
 import json
 import logging
 
-from .base_bot import BaseBot
+from .base_worker import BaseWorker
 from .telegram_bot import TelegramBot
 from .telegram_client import TelegramClient
 
 
-class DispatcherBot(BaseBot):
+class Dispatcher(BaseWorker):
     def __init__(self):
-        super().__init__(self.process_message)
-        file = open("config.json")
-        self._config.update(json.loads(file.read())["dispatcher"])
-        file.close()
+        with open("config.json") as file:
+            self.config = json.loads(file.read())["dispatcher"]
+            file.close()
 
-        self._pool_url = "http://{0}:{1}{2}".format(
-            self._config["pool_host"],
-            self._config["pool_port"],
-            self._config["pool_endpoint"],
-        )
+        super().__init__(self.process_message, self.config["pool_endpoint"])
+
 
     @staticmethod
     def _log(message: str):

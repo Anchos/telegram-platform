@@ -3,21 +3,16 @@
     "host": "0.0.0.0",
     "port": 5000
   },
-  "API": {
-    "endpoint": "/client",
-    "ping_enabled": true,
-    "ping_interval": 5.0,
-    "receive_timeout": 15.0
-  },
   "pool": {
-    "endpoint": "/bot",
+    "client_endpoint": "/client",
+    "worker_endpoint": "/worker",
+    "dispatcher_endpoint": "/dispatcher",
+    "auth_endpoint": "/auth",
     "ping_enabled": true,
     "ping_interval": 5.0
   },
-  "dispatcher": {
-    "endpoint": "/dispatcher",
-    "ping_enabled": true,
-    "ping_interval": 5.0
+  "API": {
+    "field_1": "..."
   },
   "DB": {
     "database": "postgres",
