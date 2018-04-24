@@ -4,7 +4,7 @@ from .db import db
 
 
 class Client(peewee.Model):
-    user_id = peewee.PrimaryKeyField(unique=True)
+    user_id = peewee.IntegerField(unique=True)
     first_name = peewee.CharField(null=False)
     username = peewee.CharField(null=True)
     language_code = peewee.CharField(null=False)

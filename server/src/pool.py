@@ -3,7 +3,7 @@ import logging
 
 from aiohttp import web, WSMsgType
 
-from .models import Client, Session
+from .models import Client
 from .worker import WorkerConnection
 
 
@@ -45,10 +45,13 @@ class Pool(object):
             if message.type == WSMsgType.TEXT:
                 if callback is not None:
                     try:
-                        await callback(json.loads(message.data), *args)
+                        json_message = json.loads(message.data)
                     except:
                         self._log("Invalid JSON")
 
+                        continue
+
+                    await callback(json_message, *args)
             else:
                 self._log("Disconnected with exception %s" % connection.exception())
 
@@ -56,7 +59,7 @@ class Pool(object):
                 break
 
         self._log("Disconnected")
-        self._log(connection.exception() | connection.close_code)
+        self._log(connection.close_code)
 
     async def process_worker_connection(self, request: web.Request) -> web.WebSocketResponse:
         self._log("New worker connected")
@@ -131,13 +134,5 @@ class Pool(object):
 
         else:
             self._log("Auth ready and sent to client")
-
-            self.clients[message["session_id"]][message["connection_id"]].session.client = client
-            self.clients[message["session_id"]][message["connection_id"]].session.save()
-
-            for connection_id in self.clients[message["session_id"]]:
-                self.clients[message["session_id"]][connection_id].session = Session.get(
-                    Session.session_id == message["session_id"]
-                )
 
             await self.clients[message["session_id"]][message["connection_id"]].send_response(message)
