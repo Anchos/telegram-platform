@@ -104,13 +104,10 @@ class Pool(object):
 
         if message["session_id"] not in self.clients:
             self._log("Response ready but session doesn't exist")
-
         elif message["connection_id"] not in self.clients[message["session_id"]]:
             self._log("Response ready but client doesn't exist")
-
         else:
             self._log("Response ready and sent to client")
-
             await self.clients[message["session_id"]][message["connection_id"]].send_response(message)
 
         if len(self.pending_tasks) > 0:
@@ -118,13 +115,18 @@ class Pool(object):
 
     async def process_auth_message(self, message: dict):
 
-        client = Client.get_or_create(
+        client, created = Client.get_or_create(
             user_id=message["user_id"],
             first_name=message["first_name"],
             username=message["username"],
             language_code=message["language_code"],
             avatar=message["avatar"],
         )
+
+        if created:
+            self._log("New telegram client created")
+        else:
+            self._log("Existing telegram client")
 
         if message["session_id"] not in self.clients:
             self._log("Auth ready but session doesn't exist")
@@ -133,6 +135,15 @@ class Pool(object):
             self._log("Auth ready but client is not connected")
 
         else:
-            self._log("Auth ready and sent to client")
+            self._log("Assigning client to session")
+            self.clients[message["session_id"]][message["connection_id"]].session.client = client
+            self.clients[message["session_id"]][message["connection_id"]].session.save()
 
+            self._log("Updating all connections with session")
+            for connection_id in self.clients[message["session_id"]]:
+                self.clients[message["session_id"]][connection_id].session = self.clients[message["session_id"]][
+                    message["connection_id"]].session
+
+            self._log("Auth sending to client")
             await self.clients[message["session_id"]][message["connection_id"]].send_response(message)
+            self._log("Auth sent to client")
