@@ -117,10 +117,12 @@ class Pool(object):
 
         client, created = Client.get_or_create(
             user_id=message["user_id"],
-            first_name=message["first_name"],
-            username=message["username"],
-            language_code=message["language_code"],
-            avatar=message["avatar"],
+            defaults={
+                "first_name": message["first_name"],
+                "username": message["username"],
+                "language_code": message["language_code"],
+                "avatar": message["avatar"],
+            }
         )
 
         if created:
