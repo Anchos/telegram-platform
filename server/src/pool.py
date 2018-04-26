@@ -89,6 +89,8 @@ class Pool(object):
         return connection
 
     async def process_auth_connection(self, request: web.Request) -> web.WebSocketResponse:
+        self._log("New auth connection")
+
         connection = await self.prepare_connection(request)
 
         self.auth_bot = connection
