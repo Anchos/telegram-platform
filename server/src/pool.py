@@ -138,7 +138,6 @@ class Pool(object):
 
             elif message["type"] == "STICKERS":
                 self._log("Updating stickers")
-                self._log("%s" % message["stickers"])
 
                 update_stickers(message["stickers"])
 

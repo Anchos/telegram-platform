@@ -111,15 +111,6 @@ class API(object):
         elif message["type"] == "STICKERS_CATEGORIES":
             message["stickers_categories"] = self.fetch_stickers_categories()
 
-        elif message["type"] == "CHANNELS_CATEGORIES_QUANTITIES":
-            message["channels_categories_quantities"] = self.fetch_channels_categories_quantities()
-
-        elif message["type"] == "BOTS_CATEGORIES_QUANTITIES":
-            message["bots_categories_quantities"] = self.fetch_bots_categories_quantities()
-
-        elif message["type"] == "STICKERS_CATEGORIES_QUANTITIES":
-            message["stickers_categories_quantities"] = self.fetch_stickers_categories_quantities()
-
         elif error is not None:
             self._log(error)
 
@@ -137,31 +128,23 @@ class API(object):
         return await client.send_response(message)
 
     def fetch_channels(self, message: dict) -> list:
-        if message["name"] is not "":
-            channels = Channel.select().where(
-                Channel.name ** message["name"],
-                (Channel.members >= message["members"][0]) | (Channel.members <= message["members"][1]),
-                Channel.category == message["category"]
-            ).offset(message["offset"]).limit(message["count"])
+        message["name"] = message["name"] if message["name"] is not "" else "%"
+        message["category"] = message["category"] if message["category"] is not "" else "%"
 
-        else:
-            channels = Channel.select().where(
-                (Channel.members >= message["members"][0]) | (Channel.members <= message["members"][1]),
+        channels = Channel.select().where(
+            Channel.name ** message["name"],
+            Channel.members.between(message["members"][0], message["members"][1]),
+            Channel.category ** message["category"],
             ).offset(message["offset"]).limit(message["count"])
 
         return [x.serialize() for x in channels]
 
     def fetch_channels_categories(self) -> list:
-        categories = Channel.select(Channel.category)
-
-        return [x.category for x in categories]
-
-    def fetch_channels_categories_quantities(self) -> list:
         quantities = Channel.select(
             Channel.category,
             peewee.fn.COUNT(peewee.SQL("*"))).group_by(Channel.category)
 
-        return [(x.category, x.count) for x in quantities]
+        return [{"category": x.category, "count": x.count} for x in quantities]
 
     def fetch_bots(self, message: dict) -> list:
         bots = Bot.select().where(
@@ -171,16 +154,11 @@ class API(object):
         return [x.serialize() for x in bots]
 
     def fetch_bots_categories(self) -> list:
-        categories = Bot.select(Bot.category)
-
-        return [x.category for x in categories]
-
-    def fetch_bots_categories_quantities(self) -> list:
         quantities = Bot.select(
             Bot.category,
             peewee.fn.COUNT(peewee.SQL("*"))).group_by(Bot.category)
 
-        return [(x.category, x.count) for x in quantities]
+        return [{"category": x.category, "count": x.count} for x in quantities]
 
     def fetch_stickers(self, message: dict) -> list:
         stickers = Sticker.select().where(
@@ -190,16 +168,11 @@ class API(object):
         return [x.serialize() for x in stickers]
 
     def fetch_stickers_categories(self) -> list:
-        categories = Sticker.select(Sticker.category)
-
-        return [x.category for x in categories]
-
-    def fetch_stickers_categories_quantities(self) -> list:
         quantities = Sticker.select(
             Sticker.category,
             peewee.fn.COUNT(peewee.SQL("*"))).group_by(Sticker.category)
 
-        return [(x.category, x.count) for x in quantities]
+        return [{"category": x.category, "count": x.count} for x in quantities]
 
     @staticmethod
     def validate_message(message: dict) -> str:
