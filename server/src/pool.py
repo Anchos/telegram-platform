@@ -3,7 +3,9 @@ import logging
 
 from aiohttp import web, WSMsgType
 
+from .client import ClientConnection
 from .models import Client
+from .models import Task, update_channels, update_bots, update_stickers
 from .worker import WorkerConnection
 
 
@@ -30,6 +32,22 @@ class Pool(object):
     @staticmethod
     def _log(message: str):
         logging.info("[POOL] %s" % message)
+
+    async def send_task(self, client: ClientConnection, task: dict):
+        Task.create(
+            session=client.session,
+            connection_id=client.connection_id,
+            data=task,
+        )
+
+        if len(self.workers) == 0:
+            self._log("No available bots. Caching task")
+
+            self.pending_tasks.append(task)
+
+        else:
+            await self.workers[0].send_task(task)
+            self.workers.pop(0)
 
     async def prepare_connection(self, request: web.Request) -> web.WebSocketResponse:
         connection = web.WebSocketResponse(
@@ -69,6 +87,9 @@ class Pool(object):
         worker = WorkerConnection(connection=connection)
         self.workers.append(worker)
 
+        if len(self.pending_tasks) > 0:
+            await worker.send_task(self.pending_tasks.pop())
+
         await self.process_messages(connection, self.process_worker_message, worker)
 
         self.workers.remove(worker)
@@ -89,7 +110,7 @@ class Pool(object):
         return connection
 
     async def process_auth_connection(self, request: web.Request) -> web.WebSocketResponse:
-        self._log("New auth connection")
+        self._log("New auth connected")
 
         connection = await self.prepare_connection(request)
 
@@ -104,12 +125,34 @@ class Pool(object):
     async def process_worker_message(self, message: dict, worker: WorkerConnection):
         self.workers.append(worker)
 
+        if message["action"] == "UPDATE":
+            if message["type"] == "CHANNELS":
+                self._log("Updating channels")
+
+                update_channels(message["channels"])
+
+            elif message["type"] == "BOTS":
+                self._log("Updating bots")
+
+                update_bots(message["bots"])
+
+            elif message["type"] == "STICKERS":
+                self._log("Updating stickers")
+                self._log("%s" % message["stickers"])
+
+                update_stickers(message["stickers"])
+
+            return
+
         if message["session_id"] not in self.clients:
             self._log("Response ready but session doesn't exist")
+
         elif message["connection_id"] not in self.clients[message["session_id"]]:
             self._log("Response ready but client doesn't exist")
+
         else:
             self._log("Response ready and sent to client")
+
             await self.clients[message["session_id"]][message["connection_id"]].send_response(message)
 
         if len(self.pending_tasks) > 0:

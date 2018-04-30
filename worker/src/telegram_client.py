@@ -22,9 +22,9 @@ class TelegramClient(BaseWorker):
         super().run()
 
     async def process_message(self, message: dict):
-        if message["action"] == "FETCH":
+        if message["action"] == "UPDATE":
             if message["type"] == "CHANNELS":
-                channels = requests.post("https://tgstat.ru/en/channels/list").json()["items"]["list"]
+                channels = requests.post("https://tgstat.ru/ru/channels/list").json()["items"]["list"]
 
                 for x in range(len(channels)):
                     channels[x] = {
@@ -35,22 +35,20 @@ class TelegramClient(BaseWorker):
                         "members": channels[x]["members"],
                         "members_growth": channels[x]["members_growth"],
                         "views": channels[x]["views"],
-                        "views_growth_percent": channels[x]["views_growth_percent"],
+                        "views_growth": channels[x]["views_growth_percent"],
                         "views_per_post": channels[x]["views_per_post"],
                     }
 
-                    message["data"] = {
-                        "channels": channels
-                    }
+                message["channels"] = channels
 
                 await self.send_to_server(message)
 
             elif message["type"] == "BOTS":
-                bots = requests.get("https://storebot.me/api/bots?list=top&languages=russian&count=100").json()
+                bots = requests.get("https://storebot.me/api/bots?list=top&languages=russian&count=10000").json()
 
                 for x in range(len(bots)):
                     bots[x] = {
-                        "name": bots[x]["name"],
+                        "name": bots[x]["name"] if "name" in bots[x] else "N/A",
                         "link": bots[x]["link"],
                         "photo": bots[x]["photo"].replace("[WIDTH]x[HEIGHT]", "120x120") if "photo" in bots[
                             x] else None,
@@ -58,28 +56,32 @@ class TelegramClient(BaseWorker):
                         "category": bots[x]["categoryId"] if "categoryId" in bots[x] else None,
                     }
 
-                message["data"] = {
-                    "bots": bots
-                }
+                message["bots"] = bots
 
                 await self.send_to_server(message)
 
             elif message["type"] == "STICKERS":
-                stickers = requests.get(
-                    "https://tlgrm.ru/stickers?page=0&ajax=true",
-                    headers={"X-Requested-With": "XMLHttpRequest"}).json()["data"]
+                stickers = []
+                last_page = requests.get(
+                    "https://tlgrm.ru/stickers?page=1",
+                    headers={"X-Requested-With": "XMLHttpRequest"}).json()["last_page"]
 
-                for x in range(len(stickers)):
-                    stickers[x] = {
-                        "name": stickers[x]["name"],
-                        "link": stickers[x]["link"],
-                        "count": stickers[x]["count"],
-                        "installs": stickers[x]["installs"],
-                        "lang": stickers[x]["lang"],
-                    }
+                for page in range(1, last_page):
 
-                message["data"] = {
-                    "stickers": stickers
-                }
+                    stickers_new = requests.get(
+                        "https://tlgrm.ru/stickers?page={0}".format(page),
+                        headers={"X-Requested-With": "XMLHttpRequest"}).json()["data"]
+
+                    for x in range(len(stickers_new)):
+                        stickers_new[x] = {
+                            "name": stickers_new[x]["name"],
+                            "link": stickers_new[x]["link"],
+                            "installs": stickers_new[x]["installs"],
+                            "language": stickers_new[x]["lang"],
+                        }
+
+                    stickers += stickers_new
+
+                message["stickers"] = stickers
 
                 await self.send_to_server(message)

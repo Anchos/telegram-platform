@@ -107,7 +107,7 @@ class TelegramBot(BaseWorker):
                     {"file_id": avatar_file_id}
                 )["result"]["file_path"]
 
-                response["avatar"] = "https://api.telegram.org/file/bot{0}/{1}".format(
+                response["photo"] = "https://api.telegram.org/file/bot{0}/{1}".format(
                     self.config["bot_token"],
                     file_path,
                 )
