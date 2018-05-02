@@ -68,12 +68,6 @@ class API(object):
         await self.pool.dispatcher_bot.send_json(message)
 
     async def client_init(self, client: ClientConnection, message: dict):
-        response = {
-            "id": message["id"],
-            "action": message["action"],
-            "expires_in": 172800,
-        }
-
         if "session_id" not in message or not Session.exists(message["session_id"]):
             self._log("New session initialisation")
 
@@ -91,10 +85,13 @@ class API(object):
 
             self.add_client(client)
 
-        response["session_id"] = client.session.session_id
-        response["connection_id"] = client.connection_id
-
-        await client.send_response(response)
+        await client.send_response({
+            "id": message["id"],
+            "action": message["action"],
+            "expires_in": 172800,
+            "session_id": client.session.session_id,
+            "connection_id": client.connection_id
+        })
 
     async def update(self, client: ClientConnection, message: dict):
         await self.pool.send_task(client, message)
@@ -118,49 +115,45 @@ class API(object):
         return await client.send_response(message)
 
     def fetch_channels(self, message: dict) -> dict:
-        data = {}
-
         if message["name"] is not "":
-            name = "%{0}%".format(message["name"])
+            name_query = Channel.name ** "%{0}%".format(message["name"])
         else:
-            name = "%"
+            name_query = Channel.name ** "%"
 
         if message["category"] is not "":
-            channels = Channel.select().where(
-                Channel.name ** name,
-                Channel.members.between(message["members"][0], message["members"][1]),
-                Channel.category == message["category"],
-            ).offset(message["offset"]).limit(message["count"])
+            category_query = Channel.category == message["category"]
         else:
-            channels = Channel.select().where(
-                Channel.name ** name,
-                Channel.members.between(message["members"][0], message["members"][1]),
-            ).offset(message["offset"]).limit(message["count"])
+            category_query = Channel.category ** "%"
 
-        data["channels"] = [x.serialize() for x in channels]
+        if len(message["members"]) >= 2:
+            members_query = Channel.members.between(message["members"][0], message["members"][1])
+        else:
+            members_query = Channel.members >= 0
+
+        channels = Channel.select().where(
+            name_query,
+            category_query,
+            members_query,
+        ).offset(message["offset"]).limit(message["count"])
 
         categories = Channel.select(
             Channel.category,
             peewee.fn.COUNT(peewee.SQL("*"))).group_by(Channel.category)
-        data["categories"] = [{"category": x.category, "count": x.count} for x in categories]
 
-        if message["category"] is not "":
-            total_channels = Channel.select().where(
-                Channel.name ** name,
-                Channel.members.between(message["members"][0], message["members"][1]),
-                Channel.category == message["category"],
-            ).count()
-        else:
-            total_channels = Channel.select().where(
-                Channel.name ** name,
-                Channel.members.between(message["members"][0], message["members"][1]),
-            ).count()
-        data["total_channels"] = total_channels
+        total_channels = Channel.select().where(
+            name_query,
+            category_query,
+            members_query,
+        ).count()
 
         max_members = Channel.select(peewee.fn.MAX(Channel.members)).scalar()
-        data["max_members"] = max_members
 
-        return data
+        return {
+            "channels": [x.serialize() for x in channels],
+            "categories": [{"category": x.category, "count": x.count} for x in categories],
+            "total_channels": total_channels,
+            "max_members": max_members
+        }
 
     def fetch_bots(self, message: dict) -> list:
         bots = Bot.select().where(

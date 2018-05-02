@@ -39,8 +39,9 @@ class Task(peewee.Model):
 
 
 class Channel(peewee.Model):
+    telegram_id = peewee.IntegerField(null=True, unique=True)
     name = peewee.CharField()
-    link = peewee.CharField(unique=True)
+    link = peewee.CharField()
     photo = peewee.CharField(null=True)
     category = peewee.CharField()
     description = peewee.TextField(null=True)

@@ -5,7 +5,7 @@ from aiohttp import web, WSMsgType
 
 from .client import ClientConnection
 from .models import Client
-from .models import Task, update_channels, update_bots, update_stickers
+from .models import update_channels, update_bots, update_stickers
 from .worker import WorkerConnection
 
 
@@ -34,12 +34,6 @@ class Pool(object):
         logging.info("[POOL] %s" % message)
 
     async def send_task(self, client: ClientConnection, task: dict):
-        Task.create(
-            session=client.session,
-            connection_id=client.connection_id,
-            data=task,
-        )
-
         if len(self.workers) == 0:
             self._log("No available bots. Caching task")
 
