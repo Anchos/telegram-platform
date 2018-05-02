@@ -101,23 +101,13 @@ class API(object):
 
     async def fetch(self, client: ClientConnection, message: dict):
         error = self.validate_fetch_message(message)
-
-        if message["type"] == "CHANNELS_CATEGORIES":
-            message["channels_categories"] = self.fetch_channels_categories()
-
-        elif message["type"] == "BOTS_CATEGORIES":
-            message["bots_categories"] = self.fetch_bots_categories()
-
-        elif message["type"] == "STICKERS_CATEGORIES":
-            message["stickers_categories"] = self.fetch_stickers_categories()
-
-        elif error is not None:
+        if error is not None:
             self._log(error)
 
             return await client.send_error(error)
 
         if message["type"] == "CHANNELS":
-            message["channels"] = self.fetch_channels(message)
+            message["data"] = self.fetch_channels(message)
 
         elif message["type"] == "BOTS":
             message["bots"] = self.fetch_bots(message)
@@ -127,24 +117,50 @@ class API(object):
 
         return await client.send_response(message)
 
-    def fetch_channels(self, message: dict) -> list:
-        message["name"] = message["name"] if message["name"] is not "" else "%"
-        message["category"] = message["category"] if message["category"] is not "" else "%"
+    def fetch_channels(self, message: dict) -> dict:
+        data = {}
 
-        channels = Channel.select().where(
-            Channel.name ** message["name"],
-            Channel.members.between(message["members"][0], message["members"][1]),
-            Channel.category ** message["category"],
+        if message["name"] is not "":
+            name = "%{0}%".format(message["name"])
+        else:
+            name = "%"
+
+        if message["category"] is not "":
+            channels = Channel.select().where(
+                Channel.name ** name,
+                Channel.members.between(message["members"][0], message["members"][1]),
+                Channel.category == message["category"],
+            ).offset(message["offset"]).limit(message["count"])
+        else:
+            channels = Channel.select().where(
+                Channel.name ** name,
+                Channel.members.between(message["members"][0], message["members"][1]),
             ).offset(message["offset"]).limit(message["count"])
 
-        return [x.serialize() for x in channels]
+        data["channels"] = [x.serialize() for x in channels]
 
-    def fetch_channels_categories(self) -> list:
-        quantities = Channel.select(
+        categories = Channel.select(
             Channel.category,
             peewee.fn.COUNT(peewee.SQL("*"))).group_by(Channel.category)
+        data["categories"] = [{"category": x.category, "count": x.count} for x in categories]
 
-        return [{"category": x.category, "count": x.count} for x in quantities]
+        if message["category"] is not "":
+            total_channels = Channel.select().where(
+                Channel.name ** name,
+                Channel.members.between(message["members"][0], message["members"][1]),
+                Channel.category == message["category"],
+            ).count()
+        else:
+            total_channels = Channel.select().where(
+                Channel.name ** name,
+                Channel.members.between(message["members"][0], message["members"][1]),
+            ).count()
+        data["total_channels"] = total_channels
+
+        max_members = Channel.select(peewee.fn.MAX(Channel.members)).scalar()
+        data["max_members"] = max_members
+
+        return data
 
     def fetch_bots(self, message: dict) -> list:
         bots = Bot.select().where(

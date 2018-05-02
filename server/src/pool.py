@@ -165,7 +165,7 @@ class Pool(object):
                 "first_name": message["first_name"],
                 "username": message["username"],
                 "language_code": message["language_code"],
-                "avatar": message["avatar"],
+                "photo": message["photo"],
             }
         )
 
