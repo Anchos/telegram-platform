@@ -1,11 +1,12 @@
 import asyncio
+import time
 
 import aiohttp
 
 
 async def main():
     server_connection = await aiohttp.ClientSession().ws_connect(
-        url="http://0.0.0.0:5000/client",
+        url="http://159.65.126.202:5000/client",
         autoping=True,
     )
 
@@ -20,8 +21,8 @@ async def main():
             "type": "CHANNEL",
             "channel": "@" + channel.strip()
         })
+        time.sleep(1)
         break
-
 
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()

@@ -95,7 +95,7 @@ class AuthBot(BaseWorker):
                     payload={"user_id": update["from"]["id"], "limit": 1},
                 ))["result"]["photos"][0][2]["file_id"]
 
-                response["photo"] = get_telegram_file(
+                response["photo"] = await get_telegram_file(
                     bot_token=self.config["bot_token"],
                     file_id=file_id
                 )
