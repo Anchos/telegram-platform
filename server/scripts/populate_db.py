@@ -21,8 +21,7 @@ async def main():
             "type": "CHANNEL",
             "channel": "@" + channel.strip()
         })
-        time.sleep(1)
-        break
+        time.sleep(10)
 
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()

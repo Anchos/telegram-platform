@@ -37,6 +37,12 @@ class UpdateBot(BaseWorker):
             payload={"chat_id": chat_id}
         ))["result"]
 
+        members = (await send_telegram_request(
+            bot_token=self.get_bot_token(),
+            method="getChatMembersCount",
+            payload={"chat_id": chat_id}
+        ))["result"]
+
         chat = {
             "telegram_id": chat["id"],
             "title": chat["title"],
@@ -45,7 +51,8 @@ class UpdateBot(BaseWorker):
                 bot_token=self.get_bot_token(),
                 file_id=chat["photo"]["big_file_id"]
             ),
-            "description": chat["description"] if "description" in chat else ""
+            "description": chat["description"] if "description" in chat else "",
+            "members": members
         }
 
         self._log("Fetched channel %s" % chat["username"])

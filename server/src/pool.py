@@ -155,6 +155,7 @@ class Pool(object):
                 channel.title = message["channel"]["title"]
                 channel.photo = message["channel"]["photo"]
                 channel.description = message["channel"]["description"]
+                channel.members = message["channel"]["members"]
 
                 channel.save()
 

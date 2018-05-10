@@ -148,12 +148,14 @@ class API(object):
         ).count()
 
         max_members = Channel.select(peewee.fn.MAX(Channel.members)).scalar()
+        max_cost = Channel.select(peewee.fn.MAX(Channel.cost)).scalar()
 
         return {
             "items": [x.serialize() for x in channels],
             "categories": [{"category": x.category, "count": x.count} for x in categories],
             "total": total,
-            "max_members": max_members
+            "max_members": max_members,
+            "max_cost": max_cost,
         }
 
     def fetch_channel(self, message: dict) -> dict:
