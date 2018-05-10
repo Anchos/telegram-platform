@@ -8,11 +8,11 @@ from .base_worker import BaseWorker
 
 class TelegramClient(BaseWorker):
     def __init__(self):
-        with open("config.json") as file:
-            self.config = json.loads(file.read())["telegram_client"]
-            file.close()
+        file = open("config.json")
+        self.config = json.loads(file.read())["telegram_client"]
+        file.close()
 
-        super().__init__(self.process_message, self.config["pool_endpoint"])
+        super().__init__(self.config["pool_endpoint"], self.process_message)
 
     @staticmethod
     def _log(message: str):
@@ -23,27 +23,7 @@ class TelegramClient(BaseWorker):
 
     async def process_message(self, message: dict):
         if message["action"] == "UPDATE":
-            if message["type"] == "CHANNELS":
-                channels = requests.post("https://tgstat.ru/ru/channels/list").json()["items"]["list"]
-
-                for x in range(len(channels)):
-                    channels[x] = {
-                        "name": channels[x]["title"],
-                        "link": channels[x]["username"],
-                        "photo": channels[x]["photo"],
-                        "category": channels[x]["category"],
-                        "members": channels[x]["members"],
-                        "members_growth": channels[x]["members_growth"],
-                        "views": channels[x]["views"],
-                        "views_growth": channels[x]["views_growth_percent"],
-                        "views_per_post": channels[x]["views_per_post"],
-                    }
-
-                message["channels"] = channels
-
-                await self.send_to_server(message)
-
-            elif message["type"] == "BOTS":
+            if message["type"] == "BOTS":
                 bots = requests.get("https://storebot.me/api/bots?list=top&languages=russian&count=10000").json()
 
                 for x in range(len(bots)):
@@ -57,8 +37,6 @@ class TelegramClient(BaseWorker):
                     }
 
                 message["bots"] = bots
-
-                await self.send_to_server(message)
 
             elif message["type"] == "STICKERS":
                 stickers = []
@@ -84,4 +62,4 @@ class TelegramClient(BaseWorker):
 
                 message["stickers"] = stickers
 
-                await self.send_to_server(message)
+            await self.send_to_server(message)

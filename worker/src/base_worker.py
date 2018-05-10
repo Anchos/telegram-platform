@@ -7,7 +7,7 @@ import aiohttp
 
 
 class BaseWorker(object):
-    def __init__(self, process_message: callable = None, endpoint: str = None):
+    def __init__(self, endpoint: str, process_message: callable = None):
         with open("config.json") as file:
             self._config = json.loads(file.read())["base_worker"]
             file.close()
@@ -15,7 +15,7 @@ class BaseWorker(object):
         self._pool_url = "http://{0}:{1}{2}".format(
             self._config["pool_host"],
             self._config["pool_port"],
-            self._config["pool_endpoint"] if endpoint is None else endpoint,
+            endpoint,
         )
         self._server_connection = None
         self._process_message = process_message
@@ -42,7 +42,7 @@ class BaseWorker(object):
         except:
             self._log("Reconnecting")
 
-            time.sleep(2)
+            time.sleep(self._config["timeout"])
             await self.connect_to_server()
 
         await self.process_connection(self._server_connection)

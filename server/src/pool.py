@@ -1,12 +1,10 @@
 import json
 import logging
 
+import peewee
 from aiohttp import web, WSMsgType
 
-from .client import ClientConnection
-from .models import Client
-from .models import update_channels, update_bots, update_stickers
-from .worker import WorkerConnection
+from .models import Client, Channel
 
 
 class Pool(object):
@@ -16,7 +14,7 @@ class Pool(object):
             file.close()
 
         self.routes = [
-            web.get(self.config["worker_endpoint"], self.process_worker_connection),
+            web.get(self.config["update_endpoint"], self.process_update_connection),
             web.get(self.config["dispatcher_endpoint"], self.process_dispatcher_connection),
             web.get(self.config["auth_endpoint"], self.process_auth_connection),
         ]
@@ -25,6 +23,7 @@ class Pool(object):
 
         self.dispatcher_bot = None
         self.auth_bot = None
+        self.update_bot = None
 
         self.clients = {}
         self.workers = []
@@ -32,16 +31,6 @@ class Pool(object):
     @staticmethod
     def _log(message: str):
         logging.info("[POOL] %s" % message)
-
-    async def send_task(self, client: ClientConnection, task: dict):
-        if len(self.workers) == 0:
-            self._log("No available bots. Caching task")
-
-            self.pending_tasks.append(task)
-
-        else:
-            await self.workers[0].send_task(task)
-            self.workers.pop(0)
 
     async def prepare_connection(self, request: web.Request) -> web.WebSocketResponse:
         connection = web.WebSocketResponse(
@@ -73,38 +62,24 @@ class Pool(object):
         self._log("Disconnected")
         self._log(connection.close_code)
 
-    async def process_worker_connection(self, request: web.Request) -> web.WebSocketResponse:
-        self._log("New worker connected")
-
-        connection = await self.prepare_connection(request)
-
-        worker = WorkerConnection(connection=connection)
-        self.workers.append(worker)
-
-        if len(self.pending_tasks) > 0:
-            await worker.send_task(self.pending_tasks.pop())
-
-        await self.process_messages(connection, self.process_worker_message, worker)
-
-        self.workers.remove(worker)
-
-        return connection
-
     async def process_dispatcher_connection(self, request: web.Request) -> web.WebSocketResponse:
-        self._log("New dispatcher connected")
+        self._log("New dispatcher bot connected")
 
         connection = await self.prepare_connection(request)
 
         self.dispatcher_bot = connection
 
-        await self.process_messages(connection)
+        await self.process_messages(connection, self.process_dispatcher_message)
 
         self.dispatcher_bot = None
 
         return connection
 
+    async def process_dispatcher_message(self, message: dict):
+        pass
+
     async def process_auth_connection(self, request: web.Request) -> web.WebSocketResponse:
-        self._log("New auth connected")
+        self._log("New auth bot connected")
 
         connection = await self.prepare_connection(request)
 
@@ -116,43 +91,7 @@ class Pool(object):
 
         return connection
 
-    async def process_worker_message(self, message: dict, worker: WorkerConnection):
-        self.workers.append(worker)
-
-        if message["action"] == "UPDATE":
-            if message["type"] == "CHANNELS":
-                self._log("Updating channels")
-
-                update_channels(message["channels"])
-
-            elif message["type"] == "BOTS":
-                self._log("Updating bots")
-
-                update_bots(message["bots"])
-
-            elif message["type"] == "STICKERS":
-                self._log("Updating stickers")
-
-                update_stickers(message["stickers"])
-
-            return
-
-        if message["session_id"] not in self.clients:
-            self._log("Response ready but session doesn't exist")
-
-        elif message["connection_id"] not in self.clients[message["session_id"]]:
-            self._log("Response ready but client doesn't exist")
-
-        else:
-            self._log("Response ready and sent to client")
-
-            await self.clients[message["session_id"]][message["connection_id"]].send_response(message)
-
-        if len(self.pending_tasks) > 0:
-            await worker.send_task(self.pending_tasks.pop())
-
     async def process_auth_message(self, message: dict):
-
         client, created = Client.get_or_create(
             user_id=message["user_id"],
             defaults={
@@ -187,3 +126,36 @@ class Pool(object):
             self._log("Auth sending to client")
             await self.clients[message["session_id"]][message["connection_id"]].send_response(message)
             self._log("Auth sent to client")
+
+    async def process_update_connection(self, request: web.Request) -> web.WebSocketResponse:
+        self._log("New update bot connected")
+
+        connection = await self.prepare_connection(request)
+
+        self.update_bot = connection
+
+        await self.process_messages(connection, self.process_update_message)
+
+        self.update_bot = None
+
+        return connection
+
+    async def process_update_message(self, message: dict):
+        if message["action"] == "UPDATE":
+            if message["type"] == "CHANNEL":
+                try:
+                    channel = Channel.get(Channel.username == message["channel"]["username"])
+                    self._log("Channel exists")
+                except peewee.DoesNotExist:
+                    self._log("Creating new channel")
+                    channel = Channel()
+
+                channel.username = message["channel"]["username"]
+                channel.telegram_id = message["channel"]["telegram_id"]
+                channel.title = message["channel"]["title"]
+                channel.photo = message["channel"]["photo"]
+                channel.description = message["channel"]["description"]
+
+                channel.save()
+
+                self._log("Updated channel %s" % channel.username)

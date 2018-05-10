@@ -5,7 +5,7 @@
   },
   "pool": {
     "client_endpoint": "/client",
-    "worker_endpoint": "/worker",
+    "update_endpoint": "/update",
     "dispatcher_endpoint": "/dispatcher",
     "auth_endpoint": "/auth",
     "ping_enabled": true,

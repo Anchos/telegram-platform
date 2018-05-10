@@ -4,7 +4,7 @@ WORKDIR /bot
 
 COPY . .
 
-RUN ./generate_keys.sh
+RUN scripts/generate_keys.sh
 
 RUN cat public.pem
 

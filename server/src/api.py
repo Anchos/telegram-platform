@@ -8,15 +8,15 @@ import peewee
 from aiohttp import web
 
 from .client import ClientConnection
-from .models import Session, Channel, Sticker, Bot
+from .models import Session, Channel
 from .pool import Pool
 
 
 class API(object):
     def __init__(self):
-        with open("config.json") as file:
-            self._config = json.loads(file.read())["API"]
-            file.close()
+        file = open("config.json")
+        self._config = json.loads(file.read())["API"]
+        file.close()
 
         self.pool = Pool()
 
@@ -49,14 +49,11 @@ class API(object):
 
         self._log("%s request" % message["action"])
 
-        if message["action"] == "DISPATCH":
-            await self.dispatch(message)
+        if message["action"] == "UPDATE":
+            await self.update(message)
 
         elif message["action"] == "INIT":
             await self.client_init(client, message)
-
-        elif message["action"] == "UPDATE":
-            await self.update(client, message)
 
         elif message["action"] == "FETCH":
             await self.fetch(client, message)
@@ -64,8 +61,8 @@ class API(object):
         else:
             self._log("ACTION NOT IMPLEMENTED")
 
-    async def dispatch(self, message: dict):
-        await self.pool.dispatcher_bot.send_json(message)
+    async def update(self, message: dict):
+        await self.pool.update_bot.send_json(message)
 
     async def client_init(self, client: ClientConnection, message: dict):
         if "session_id" not in message or not Session.exists(message["session_id"]):
@@ -93,9 +90,6 @@ class API(object):
             "connection_id": client.connection_id
         })
 
-    async def update(self, client: ClientConnection, message: dict):
-        await self.pool.send_task(client, message)
-
     async def fetch(self, client: ClientConnection, message: dict):
         error = self.validate_fetch_message(message)
         if error is not None:
@@ -115,73 +109,61 @@ class API(object):
         return await client.send_response(message)
 
     def fetch_channels(self, message: dict) -> dict:
-        if message["name"] is not "":
-            name_query = Channel.name ** "%{0}%".format(message["name"])
+        if message["title"] is not "":
+            title_query = Channel.title ** "%{0}%".format(message["title"])
         else:
-            name_query = Channel.name ** "%"
+            title_query = Channel.title ** "%"
 
         if message["category"] is not "":
             category_query = Channel.category == message["category"]
         else:
-            category_query = Channel.category ** "%"
+            category_query = (Channel.category ** "%") | (Channel.category == "")
 
         if len(message["members"]) >= 2:
             members_query = Channel.members.between(message["members"][0], message["members"][1])
         else:
             members_query = Channel.members >= 0
 
+        if len(message["cost"]) >= 2:
+            cost_query = Channel.cost.between(message["cost"][0], message["cost"][1])
+        else:
+            cost_query = Channel.cost >= 0
+
         channels = Channel.select().where(
-            name_query,
+            title_query,
             category_query,
             members_query,
+            cost_query,
         ).offset(message["offset"]).limit(message["count"])
 
         categories = Channel.select(
             Channel.category,
             peewee.fn.COUNT(peewee.SQL("*"))).group_by(Channel.category)
 
-        total_channels = Channel.select().where(
-            name_query,
+        total = Channel.select().where(
+            title_query,
             category_query,
             members_query,
+            cost_query,
         ).count()
 
         max_members = Channel.select(peewee.fn.MAX(Channel.members)).scalar()
 
         return {
-            "channels": [x.serialize() for x in channels],
+            "items": [x.serialize() for x in channels],
             "categories": [{"category": x.category, "count": x.count} for x in categories],
-            "total_channels": total_channels,
+            "total": total,
             "max_members": max_members
         }
 
+    def fetch_channel(self, message: dict) -> dict:
+        pass
+
     def fetch_bots(self, message: dict) -> list:
-        bots = Bot.select().where(
-            Bot.name ** message["name"],
-        ).offset(message["offset"]).limit(message["count"])
-
-        return [x.serialize() for x in bots]
-
-    def fetch_bots_categories(self) -> list:
-        quantities = Bot.select(
-            Bot.category,
-            peewee.fn.COUNT(peewee.SQL("*"))).group_by(Bot.category)
-
-        return [{"category": x.category, "count": x.count} for x in quantities]
+        pass
 
     def fetch_stickers(self, message: dict) -> list:
-        stickers = Sticker.select().where(
-            Sticker.name ** message["name"],
-        ).offset(message["offset"]).limit(message["count"])
-
-        return [x.serialize() for x in stickers]
-
-    def fetch_stickers_categories(self) -> list:
-        quantities = Sticker.select(
-            Sticker.category,
-            peewee.fn.COUNT(peewee.SQL("*"))).group_by(Sticker.category)
-
-        return [{"category": x.category, "count": x.count} for x in quantities]
+        pass
 
     @staticmethod
     def validate_message(message: dict) -> str:
@@ -202,8 +184,8 @@ class API(object):
         elif "offset" not in message or not isinstance(message["offset"], int):
             return "offset is missing"
 
-        elif "name" not in message or not isinstance(message["name"], str):
-            return "name is missing"
+        elif "title" not in message or not isinstance(message["title"], str):
+            return "title is missing"
 
         elif "category" not in message or not isinstance(message["category"], str):
             return "category is missing"
@@ -211,6 +193,9 @@ class API(object):
         if message["type"] == "CHANNELS":
             if "members" not in message or not isinstance(message["members"], list):
                 return "members is missing"
+
+            if "cost" not in message or not isinstance(message["cost"], list):
+                return "cost is missing"
 
         elif message["type"] == "BOTS":
             pass

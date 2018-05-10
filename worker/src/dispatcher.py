@@ -2,9 +2,9 @@ import asyncio
 import json
 import logging
 
+from .auth_bot import AuthBot
 from .base_worker import BaseWorker
-from .telegram_bot import TelegramBot
-from .telegram_client import TelegramClient
+from .update_bot import UpdateBot
 
 
 class Dispatcher(BaseWorker):
@@ -13,7 +13,7 @@ class Dispatcher(BaseWorker):
             self.config = json.loads(file.read())["dispatcher"]
             file.close()
 
-        super().__init__(self.process_message, self.config["pool_endpoint"])
+        super().__init__(self.config["pool_endpoint"])
 
 
     @staticmethod
@@ -22,14 +22,8 @@ class Dispatcher(BaseWorker):
 
     def run(self):
         super().run()
+
+        AuthBot().run()
+        UpdateBot().run()
+
         asyncio.get_event_loop().run_forever()
-
-    @staticmethod
-    async def process_message(message: dict):
-        if message["action"] == "DISPATCH":
-
-            if message["type"] == "telegram_bot":
-                TelegramBot().run()
-
-            elif message["type"] == "telegram_client":
-                TelegramClient().run()

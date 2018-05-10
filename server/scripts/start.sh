@@ -26,4 +26,4 @@ echo '    \__\/        \  \:\       /__/:/      /__/:/               '
 echo '                  \__\/       \__\/       \__\/                '
 echo '                                                               '
 
-python3 main.py
+python3 ../main.py

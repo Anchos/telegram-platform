@@ -1,21 +1,40 @@
+import json
+
 import peewee
 from playhouse import shortcuts
 
-from .db import db
+file = open("config.json")
+config = json.loads(file.read())["DB"]
+file.close()
+
+db = peewee.PostgresqlDatabase(
+    database=config["database"],
+    user=config["user"],
+    password=config["password"],
+    host=config["host"],
+    port=config["port"]
+)
+
+db.connect()
 
 
-class Client(peewee.Model):
+class BaseModel(peewee.Model):
+    def serialize(self) -> dict:
+        return shortcuts.model_to_dict(self)
+
+    class Meta:
+        database = db
+
+
+class Client(BaseModel):
     user_id = peewee.IntegerField(unique=True)
     first_name = peewee.CharField()
     username = peewee.CharField(null=True)
     language_code = peewee.CharField()
     photo = peewee.CharField(null=True)
 
-    class Meta:
-        database = db
 
-
-class Session(peewee.Model):
+class Session(BaseModel):
     session_id = peewee.CharField(unique=True)
     expiration = peewee.DateTimeField()
     client = peewee.ForeignKeyField(Client, null=True)
@@ -24,71 +43,43 @@ class Session(peewee.Model):
     def exists(session_id: str) -> bool:
         return Session.select().where(Session.session_id == session_id).exists()
 
-    class Meta:
-        database = db
 
-
-class Task(peewee.Model):
+class Task(BaseModel):
     session = peewee.ForeignKeyField(Session)
     connection_id = peewee.CharField(unique=False)
     data = peewee.TextField()
     completed = peewee.BooleanField(default=False)
 
-    class Meta:
-        database = db
 
-
-class Channel(peewee.Model):
-    telegram_id = peewee.IntegerField(null=True, unique=True)
-    name = peewee.CharField()
-    link = peewee.CharField()
-    photo = peewee.CharField(null=True)
-    category = peewee.CharField()
-    description = peewee.TextField(null=True)
+class Channel(BaseModel):
+    telegram_id = peewee.BigIntegerField(default=0, unique=True)
+    title = peewee.CharField(default="")
+    username = peewee.CharField(default="")
+    photo = peewee.CharField(default="")
+    description = peewee.TextField(default="")
+    category = peewee.CharField(default="")
+    cost = peewee.IntegerField(default=0)
     members = peewee.IntegerField(default=0)
     members_growth = peewee.IntegerField(default=0)
     views = peewee.IntegerField(default=0)
     views_growth = peewee.IntegerField(default=0)
-    views_per_post = peewee.IntegerField(default=0)
-
-    @staticmethod
-    def get_like_by_name(name: str) -> list:
-        return Channel.select().where(Channel.name ** name)
-
-    def serialize(self) -> dict:
-        return shortcuts.model_to_dict(self)
-
-    class Meta:
-        database = db
 
 
-class Bot(peewee.Model):
-    name = peewee.CharField()
-    link = peewee.CharField(unique=True)
+class Bot(BaseModel):
+    title = peewee.CharField(default="")
+    username = peewee.CharField(default="")
     photo = peewee.CharField(null=True)
     category = peewee.CharField(null=True)
     description = peewee.TextField(null=True)
 
-    def serialize(self) -> dict:
-        return shortcuts.model_to_dict(self)
 
-    class Meta:
-        database = db
-
-
-class Sticker(peewee.Model):
-    name = peewee.CharField()
-    link = peewee.CharField(unique=True)
+class Sticker(BaseModel):
+    title = peewee.CharField(default="")
+    username = peewee.CharField(default="")
     photo = peewee.CharField(null=True)
     category = peewee.CharField(null=True)
     installs = peewee.IntegerField(default=0)
     language = peewee.CharField(null=True)
-
-    def serialize(self) -> dict:
-        return shortcuts.model_to_dict(self)
-
-    class Meta:
-        database = db
 
 
 def update_channels(channels: list):

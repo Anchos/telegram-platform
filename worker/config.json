@@ -2,12 +2,12 @@
   "base_worker": {
     "pool_host": "0.0.0.0",
     "pool_port": 5000,
-    "pool_endpoint": "/worker"
+    "timeout": 2
   },
   "dispatcher": {
     "pool_endpoint": "/dispatcher"
   },
-  "telegram_bot": {
+  "auth_bot": {
     "pool_endpoint": "/auth",
     "bot_token": "565797436:AAGfT6-vGZje6eX2LesWuhgJ322txXxq26I",
     "webhook_host": "159.65.126.202",
@@ -16,7 +16,14 @@
     "webhook_public_key": "public.pem",
     "webhook_private_key": "private.key"
   },
+  "update_bot": {
+    "pool_endpoint": "/update",
+    "bot_tokens": [
+      "507767507:AAEq2n1RF_KHpVutzcUx1oW61z9_5GJIRuA",
+      "551258584:AAFr69lA-r1XWk3SwfUjtP4xIRo-RGvaQTQ"
+    ]
+  },
   "telegram_client": {
-    "pool_endpoint": "/worker"
+    "pool_endpoint": "/telegram_client"
   }
 }
