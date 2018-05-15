@@ -100,11 +100,14 @@ class API(object):
         if message["type"] == "CHANNELS":
             message["data"] = self.fetch_channels(message)
 
+        elif message["type"] == "CHANNEL":
+            message["data"] = self.fetch_channel(message)
+
         elif message["type"] == "BOTS":
-            message["bots"] = self.fetch_bots(message)
+            message["data"] = self.fetch_bots(message)
 
         elif message["type"] == "STICKERS":
-            message["stickers"] = self.fetch_stickers(message)
+            message["data"] = self.fetch_stickers(message)
 
         return await client.send_response(message)
 
@@ -159,7 +162,12 @@ class API(object):
         }
 
     def fetch_channel(self, message: dict) -> dict:
-        pass
+        try:
+            channel = Channel.get(Channel.username == message["username"])
+        except peewee.DoesNotExist:
+            channel = Channel.select().order_by(peewee.fn.Random()).limit(1)
+
+        return channel.serialize()
 
     def fetch_bots(self, message: dict) -> list:
         pass
@@ -180,31 +188,34 @@ class API(object):
 
     @staticmethod
     def validate_fetch_message(message: dict) -> str:
-        if "count" not in message or not isinstance(message["count"], int):
-            return "count is missing"
-
-        elif "offset" not in message or not isinstance(message["offset"], int):
-            return "offset is missing"
-
-        elif "title" not in message or not isinstance(message["title"], str):
-            return "title is missing"
-
-        elif "category" not in message or not isinstance(message["category"], str):
-            return "category is missing"
-
         if message["type"] == "CHANNELS":
+            if "count" not in message or not isinstance(message["count"], int):
+                return "count is missing"
+
+            if "offset" not in message or not isinstance(message["offset"], int):
+                return "offset is missing"
+
+            if "title" not in message or not isinstance(message["title"], str):
+                return "title is missing"
+
+            if "category" not in message or not isinstance(message["category"], str):
+                return "category is missing"
+
             if "members" not in message or not isinstance(message["members"], list):
                 return "members is missing"
 
             if "cost" not in message or not isinstance(message["cost"], list):
                 return "cost is missing"
 
+        if message["type"] == "CHANNEL":
+            if "username" not in message or not isinstance(message["username"], str):
+                return "username is missing"
+
         elif message["type"] == "BOTS":
             pass
 
         elif message["type"] == "STICKERS":
-            if "installs" not in message or not isinstance(message["installs"], int):
-                return "installs is missing"
+            pass
 
     def generate_id(self) -> str:
         connection_id = "".join(random.sample("ABCDEFGHIJKLMNOPQRSTUVWXYZ", 8))
