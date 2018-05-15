@@ -15,7 +15,6 @@ class Dispatcher(BaseWorker):
 
         super().__init__(self.config["pool_endpoint"])
 
-
     @staticmethod
     def _log(message: str):
         logging.info("[DISPATCHER BOT] %s" % message)
@@ -23,7 +22,7 @@ class Dispatcher(BaseWorker):
     def run(self):
         super().run()
 
-        AuthBot().run()
         UpdateBot().run()
+        AuthBot().run()
 
         asyncio.get_event_loop().run_forever()

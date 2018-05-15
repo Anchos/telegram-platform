@@ -27,8 +27,7 @@ class BaseWorker(object):
     def run(self):
         self._log("STARTING")
 
-        loop = asyncio.get_event_loop()
-        loop.create_task(self.connect_to_server())
+        asyncio.get_event_loop().create_task(self.connect_to_server())
 
     async def send_to_server(self, message: dict):
         await self._server_connection.send_json(message)
@@ -39,15 +38,19 @@ class BaseWorker(object):
                 url=self._pool_url,
                 autoping=True,
             )
+
+            self._log("Connected")
+
+            await self.process_connection(self._server_connection)
         except:
-            self._log("Reconnecting")
+            self._log("Could not connect")
 
-            time.sleep(self._config["timeout"])
-            await self.connect_to_server()
+        self._log("Reconnecting")
 
-        await self.process_connection(self._server_connection)
-
+        time.sleep(self._config["timeout"])
         await self.connect_to_server()
+
+        self._log("Exiting")
 
     async def process_connection(self, connection: aiohttp.ClientWebSocketResponse):
         async for message in connection:
