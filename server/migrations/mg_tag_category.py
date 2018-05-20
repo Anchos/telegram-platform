@@ -1,5 +1,11 @@
 import json
 
+import sys
+
+import os
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from peewee import PostgresqlDatabase
 from playhouse.migrate import migrate, PostgresqlMigrator
 
