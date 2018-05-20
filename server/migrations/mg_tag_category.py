@@ -1,7 +1,24 @@
+import json
+
+from peewee import PostgresqlDatabase
+from peewee_migrate.migrator import PostgresqlMigrator
 from playhouse.migrate import migrate
 
-from migrations import migrator, db
-from models import Tag, Category, ChannelTag, ChannelClient, ChannelCategory, Channel
+from src.models import Tag, Category, ChannelTag, ChannelClient, ChannelCategory, Channel
+
+file = open("config.json")
+config = json.loads(file.read())["DB"]
+file.close()
+
+db = PostgresqlDatabase(
+    database=config["database"],
+    user=config["user"],
+    password=config["password"],
+    host=config["host"],
+    port=config["port"]
+)
+
+migrator = PostgresqlMigrator(db)
 
 
 def commit():
