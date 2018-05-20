@@ -50,7 +50,7 @@ class UpdateBot(BaseWorker):
                 bot_token=self.get_bot_token(),
                 file_id=chat["photo"]["big_file_id"]
             ),
-            "description": chat["description"] if "description" in chat else "",
+            "description": chat.get("description", ""),
             "members": members
         }
 
