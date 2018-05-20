@@ -42,7 +42,6 @@ class UpdateBot(BaseWorker):
             method="getChatMembersCount",
             payload={"chat_id": chat_id}
         ))["result"]
-
         chat = {
             "telegram_id": chat["id"],
             "title": chat["title"],
