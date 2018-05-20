@@ -1,10 +1,9 @@
 import json
 
 from peewee import PostgresqlDatabase
-from peewee_migrate.migrator import PostgresqlMigrator
-from playhouse.migrate import migrate
+from playhouse.migrate import migrate, PostgresqlMigrator
 
-from src.models import Tag, Category, ChannelTag, ChannelClient, ChannelCategory, Channel
+from server.src.models import Tag, Category, ChannelTag, ChannelClient, ChannelCategory, Channel
 
 file = open("config.json")
 config = json.loads(file.read())["DB"]
