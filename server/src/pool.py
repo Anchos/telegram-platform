@@ -34,7 +34,7 @@ class Pool(object):
 
     async def prepare_connection(self, request: web.Request) -> web.WebSocketResponse:
         connection = web.WebSocketResponse(
-            heartbeat=self.config["ping_interval"] if self.config["ping_enabled"] else None,
+            heartbeat=self.config.get("ping_interval", None),
             autoping=True,
         )
         await connection.prepare(request)
@@ -120,8 +120,8 @@ class Pool(object):
 
             self._log("Updating all connections with session")
             for connection_id in self.clients[message["session_id"]]:
-                self.clients[message["session_id"]][connection_id].session = self.clients[message["session_id"]][
-                    message["connection_id"]].session
+                self.clients[message["session_id"]][connection_id].session = \
+                    self.clients[message["session_id"]][message["connection_id"]].session
 
             self._log("Auth sending to client")
             await self.clients[message["session_id"]][message["connection_id"]].send_response(message)

@@ -28,12 +28,12 @@ class TelegramClient(BaseWorker):
 
                 for x in range(len(bots)):
                     bots[x] = {
-                        "name": bots[x]["name"] if "name" in bots[x] else "N/A",
+                        "name": bots[x].get("name", "N/A"),
                         "link": bots[x]["link"],
                         "photo": bots[x]["photo"].replace("[WIDTH]x[HEIGHT]", "120x120") if "photo" in bots[
                             x] else None,
-                        "description": bots[x]["description"] if "description" in bots[x] else None,
-                        "category": bots[x]["categoryId"] if "categoryId" in bots[x] else None,
+                        "description": bots[x].get("description", None),
+                        "category": bots[x].get("categoryId", None)
                     }
 
                 message["bots"] = bots

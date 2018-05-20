@@ -59,10 +59,36 @@ class Channel(BaseModel):
     description = peewee.TextField(default="")
     category = peewee.CharField(default="")
     cost = peewee.IntegerField(default=0)
+    language = peewee.CharField(default="english", null=True)
     members = peewee.IntegerField(default=0)
     members_growth = peewee.IntegerField(default=0)
     views = peewee.IntegerField(default=0)
     views_growth = peewee.IntegerField(default=0)
+    vip = peewee.BooleanField(default=False, null=True)
+    verified = peewee.BooleanField(default=False, null=True)
+
+
+class Tag(BaseModel):
+    name = peewee.CharField(unique=True)
+
+
+class Category(BaseModel):
+    name = peewee.CharField(default="")
+
+
+class ChannelCategory(BaseModel):
+    channel = peewee.ForeignKeyField(Channel)
+    category = peewee.ForeignKeyField(Category)
+
+
+class ChannelTag(BaseModel):
+    channel = peewee.ForeignKeyField(Channel)
+    tag = peewee.ForeignKeyField(Tag)
+
+
+class ChannelClient(BaseModel):
+    channel = peewee.ForeignKeyField(Channel)
+    client = peewee.ForeignKeyField(Client)
 
 
 class Bot(BaseModel):
@@ -99,6 +125,11 @@ db.create_tables([
     Session,
     Task,
     Channel,
+    Tag,
+    Category,
+    ChannelCategory,
+    ChannelClient,
+    ChannelTag,
     Bot,
     Sticker
 ])
