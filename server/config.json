@@ -6,8 +6,8 @@
   "pool": {
     "client_endpoint": "/client",
     "update_endpoint": "/update",
-    "dispatcher_endpoint": "/dispatcher",
     "auth_endpoint": "/auth",
+    "verify_endpoint": "/verify",
     "ping_enabled": true,
     "ping_interval": 60.0
   },

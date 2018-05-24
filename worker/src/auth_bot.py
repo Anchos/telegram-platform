@@ -1,5 +1,4 @@
 import asyncio
-import json
 import logging
 import multiprocessing
 import ssl
@@ -100,7 +99,7 @@ class AuthBot(BaseWorker):
                     file_id=file_id
                 )
 
-                await self.send_to_server(response)
+                await self.send_response_to_server(response)
 
         except Exception as e:
             self._log(str(e))

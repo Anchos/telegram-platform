@@ -44,30 +44,6 @@ class Session(BaseModel):
         return Session.select().where(Session.session_id == session_id).exists()
 
 
-class Task(BaseModel):
-    session = peewee.ForeignKeyField(Session)
-    connection_id = peewee.CharField(unique=False)
-    data = peewee.TextField()
-    completed = peewee.BooleanField(default=False)
-
-
-class Channel(BaseModel):
-    telegram_id = peewee.BigIntegerField(default=0, unique=True)
-    title = peewee.CharField(default="")
-    username = peewee.CharField(default="")
-    photo = peewee.CharField(default="")
-    description = peewee.TextField(default="")
-    category = peewee.CharField(default="")
-    cost = peewee.IntegerField(default=0)
-    language = peewee.CharField(default="english", null=True)
-    members = peewee.IntegerField(default=0)
-    members_growth = peewee.IntegerField(default=0)
-    views = peewee.IntegerField(default=0)
-    views_growth = peewee.IntegerField(default=0)
-    vip = peewee.BooleanField(default=False, null=True)
-    verified = peewee.BooleanField(default=False, null=True)
-
-
 class Tag(BaseModel):
     name = peewee.CharField(unique=True)
 
@@ -76,9 +52,21 @@ class Category(BaseModel):
     name = peewee.CharField(default="")
 
 
-class ChannelCategory(BaseModel):
-    channel = peewee.ForeignKeyField(Channel)
-    category = peewee.ForeignKeyField(Category)
+class Channel(BaseModel):
+    telegram_id = peewee.BigIntegerField(default=0, unique=True)
+    title = peewee.CharField(default="")
+    username = peewee.CharField(default="")
+    photo = peewee.CharField(default="")
+    description = peewee.TextField(default="")
+    cost = peewee.IntegerField(default=0)
+    language = peewee.CharField(default="", null=True)
+    members = peewee.IntegerField(default=0)
+    members_growth = peewee.IntegerField(default=0)
+    views = peewee.IntegerField(default=0)
+    views_growth = peewee.IntegerField(default=0)
+    vip = peewee.BooleanField(default=False, null=True)
+    verified = peewee.BooleanField(default=False, null=True)
+    category = peewee.ForeignKeyField(Category, null=True)
 
 
 class ChannelTag(BaseModel):
@@ -86,9 +74,9 @@ class ChannelTag(BaseModel):
     tag = peewee.ForeignKeyField(Tag)
 
 
-class ChannelClient(BaseModel):
+class ChannelAdmin(BaseModel):
     channel = peewee.ForeignKeyField(Channel)
-    client = peewee.ForeignKeyField(Client)
+    admin = peewee.ForeignKeyField(Client)
 
 
 class Bot(BaseModel):
@@ -123,12 +111,10 @@ def update_stickers(stickers: list):
 db.create_tables([
     Client,
     Session,
-    Task,
     Channel,
     Tag,
     Category,
-    ChannelCategory,
-    ChannelClient,
+    ChannelAdmin,
     ChannelTag,
     Bot,
     Sticker

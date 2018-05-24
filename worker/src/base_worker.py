@@ -29,8 +29,11 @@ class BaseWorker(object):
 
         asyncio.get_event_loop().create_task(self.connect_to_server())
 
-    async def send_to_server(self, message: dict):
+    async def send_response_to_server(self, message: dict):
         await self._server_connection.send_json(message)
+
+    async def send_error_to_server(self, error: str):
+        await self.send_response_to_server({"error": error})
 
     async def connect_to_server(self):
         try:

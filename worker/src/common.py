@@ -1,7 +1,17 @@
+import json
+import random
 import secrets
 from io import BytesIO
 
 import aiohttp
+
+file = open("config.json")
+tokens = json.loads(file.read())["bot_tokens"]
+file.close()
+
+
+def get_bot_token() -> str:
+    return random.SystemRandom().choice(tokens)
 
 
 async def send_telegram_request(bot_token: str, method: str, payload: dict) -> dict:

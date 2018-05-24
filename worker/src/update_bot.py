@@ -1,9 +1,8 @@
 import json
 import logging
-import random
 
 from .base_worker import BaseWorker
-from .common import *
+from .common import get_telegram_file, send_telegram_request, get_bot_token
 
 
 class UpdateBot(BaseWorker):
@@ -21,39 +20,47 @@ class UpdateBot(BaseWorker):
         super().run()
 
     async def process_message(self, message: dict):
-        if message["action"] == "UPDATE":
-            if message["type"] == "CHANNEL":
-                message["channel"] = await self.update_channel(message["channel"])
+        if message["type"] == "CHANNEL":
+            message["channel"] = await self.update_channel(message["channel"])
 
-            await self.send_to_server(message)
+        elif message["type"] == "USER":
+            message["user"] = await self.update_user(message["user"])
 
-    def get_bot_token(self) -> str:
-        return random.SystemRandom().choice(self.config["bot_tokens"])
+        await self.send_response_to_server(message)
 
     async def update_channel(self, chat_id: str) -> dict:
-        chat = (await send_telegram_request(
-            bot_token=self.get_bot_token(),
+        response = await send_telegram_request(
+            bot_token=get_bot_token(),
             method="getChat",
             payload={"chat_id": chat_id}
-        ))["result"]
+        )
+
+        if "result" not in response:
+            self._log("Channel does not exist")
+
+            return {}
+
+        chat = response["result"]
 
         members = (await send_telegram_request(
-            bot_token=self.get_bot_token(),
+            bot_token=get_bot_token(),
             method="getChatMembersCount",
             payload={"chat_id": chat_id}
         ))["result"]
-        chat = {
+
+        self._log("Fetched channel %s" % chat["username"])
+
+        return {
             "telegram_id": chat["id"],
             "title": chat["title"],
-            "username": chat["username"],
+            "username": "@" + chat.get("username", "anon4k"),
             "photo": await get_telegram_file(
-                bot_token=self.get_bot_token(),
+                bot_token=get_bot_token(),
                 file_id=chat["photo"]["big_file_id"]
             ),
             "description": chat.get("description", ""),
             "members": members
         }
 
-        self._log("Fetched channel %s" % chat["username"])
-
-        return chat
+    async def update_user(self, username: str) -> dict:
+        pass

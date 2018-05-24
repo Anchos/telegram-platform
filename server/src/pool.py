@@ -4,7 +4,7 @@ import logging
 import peewee
 from aiohttp import web, WSMsgType
 
-from .models import Client, Channel
+from .models import Client, Channel, ChannelAdmin
 
 
 class Pool(object):
@@ -15,18 +15,17 @@ class Pool(object):
 
         self.routes = [
             web.get(self.config["update_endpoint"], self.process_update_connection),
-            web.get(self.config["dispatcher_endpoint"], self.process_dispatcher_connection),
             web.get(self.config["auth_endpoint"], self.process_auth_connection),
+            web.get(self.config["verify_endpoint"], self.process_verify_connection),
         ]
 
         self.pending_tasks = []
 
-        self.dispatcher_bot = None
         self.auth_bot = None
         self.update_bot = None
+        self.verify_bot = None
 
         self.clients = {}
-        self.workers = []
 
     @staticmethod
     def _log(message: str):
@@ -47,7 +46,7 @@ class Pool(object):
                 if callback is not None:
                     try:
                         json_message = json.loads(message.data)
-                    except:
+                    except ValueError:
                         self._log("Invalid JSON")
 
                         continue
@@ -62,21 +61,41 @@ class Pool(object):
         self._log("Disconnected")
         self._log(connection.close_code)
 
-    async def process_dispatcher_connection(self, request: web.Request) -> web.WebSocketResponse:
-        self._log("New dispatcher bot connected")
+    async def process_update_connection(self, request: web.Request) -> web.WebSocketResponse:
+        self._log("New update bot connected")
 
         connection = await self.prepare_connection(request)
 
-        self.dispatcher_bot = connection
+        self.update_bot = connection
 
-        await self.process_messages(connection, self.process_dispatcher_message)
+        await self.process_messages(connection, self.process_update_message)
 
-        self.dispatcher_bot = None
+        self.update_bot = None
 
         return connection
 
-    async def process_dispatcher_message(self, message: dict):
-        pass
+    async def process_update_message(self, message: dict):
+        if message["type"] == "CHANNEL":
+            if not message["channel"]:
+                return
+
+            try:
+                channel = Channel.get(Channel.username == message["channel"]["username"])
+                self._log("Channel exists")
+            except peewee.DoesNotExist:
+                self._log("Creating new channel")
+                channel = Channel()
+
+            channel.username = message["channel"]["username"]
+            channel.telegram_id = message["channel"]["telegram_id"]
+            channel.title = message["channel"]["title"]
+            channel.photo = message["channel"]["photo"]
+            channel.description = message["channel"]["description"]
+            channel.members = message["channel"]["members"]
+
+            channel.save()
+
+            self._log("Updated channel %s" % channel.username)
 
     async def process_auth_connection(self, request: web.Request) -> web.WebSocketResponse:
         self._log("New auth bot connected")
@@ -127,36 +146,27 @@ class Pool(object):
             await self.clients[message["session_id"]][message["connection_id"]].send_response(message)
             self._log("Auth sent to client")
 
-    async def process_update_connection(self, request: web.Request) -> web.WebSocketResponse:
-        self._log("New update bot connected")
+    async def process_verify_connection(self, request: web.Request) -> web.WebSocketResponse:
+        self._log("New verify bot connected")
 
         connection = await self.prepare_connection(request)
 
-        self.update_bot = connection
+        self.verify_bot = connection
 
-        await self.process_messages(connection, self.process_update_message)
+        await self.process_messages(connection, self.process_verify_message)
 
-        self.update_bot = None
+        self.verify_bot = None
 
         return connection
 
-    async def process_update_message(self, message: dict):
-        if message["action"] == "UPDATE":
-            if message["type"] == "CHANNEL":
-                try:
-                    channel = Channel.get(Channel.username == message["channel"]["username"])
-                    self._log("Channel exists")
-                except peewee.DoesNotExist:
-                    self._log("Creating new channel")
-                    channel = Channel()
+    async def process_verify_message(self, message: dict):
+        if message["is_admin"]:
+            channel = Channel.get(Channel.username == message["channel_username"])
+            client = Client.get(Client.username == message["client_username"])
 
-                channel.username = message["channel"]["username"]
-                channel.telegram_id = message["channel"]["telegram_id"]
-                channel.title = message["channel"]["title"]
-                channel.photo = message["channel"]["photo"]
-                channel.description = message["channel"]["description"]
-                channel.members = message["channel"]["members"]
+            channel_admin = ChannelAdmin()
+            channel_admin.channel = channel
+            channel_admin.admin = client
+            channel_admin.save()
 
-                channel.save()
-
-                self._log("Updated channel %s" % channel.username)
+        await self.clients[message["session_id"]][message["connection_id"]].send_response(message)

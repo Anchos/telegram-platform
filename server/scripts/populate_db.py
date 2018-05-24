@@ -14,6 +14,21 @@ async def main():
     channels = file.readlines()
     file.close()
 
+    await server_connection.send_json({
+        "id": 0,
+        "action": "INIT",
+        "type": "SESSION",
+        "session_id": None,
+    })
+
+    await server_connection.send_json({
+        "id": 0,
+        "action": "UPDATE",
+        "type": "CHANNEL",
+        "channel": "@hcdev",
+    })
+    time.sleep(10)
+
     for channel in channels:
         await server_connection.send_json({
             "id": 0,
@@ -22,6 +37,7 @@ async def main():
             "channel": "@" + channel.strip()
         })
         time.sleep(10)
+
 
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()

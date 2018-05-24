@@ -1,3 +1,7 @@
+"""
+DEPRECIATED, DO NOT USE / REFACTOR / TOUCH
+"""
+
 import json
 import logging
 
@@ -62,4 +66,4 @@ class TelegramClient(BaseWorker):
 
                 message["stickers"] = stickers
 
-            await self.send_to_server(message)
+            await self.send_response_to_server(message)

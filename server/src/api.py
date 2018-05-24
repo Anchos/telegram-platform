@@ -49,14 +49,28 @@ class API(object):
 
         self._log("%s request" % message["action"])
 
+        if message["action"] == "INIT":
+            await self.client_init(client, message)
+            return
+
+        if client.session is None:
+            self._log("Attempt to call actions without INIT")
+
+            await client.send_error("call INIT before calling other actions")
+            return
+
+        else:
+            message["session_id"] = client.session.session_id
+            message["connection_id"] = client.connection_id
+
         if message["action"] == "UPDATE":
             await self.update(message)
 
-        elif message["action"] == "INIT":
-            await self.client_init(client, message)
-
         elif message["action"] == "FETCH":
             await self.fetch(client, message)
+
+        elif message["action"] == "VERIFY":
+            await self.verify(client, message)
 
         else:
             self._log("ACTION NOT IMPLEMENTED")
@@ -95,7 +109,8 @@ class API(object):
         if error is not None:
             self._log(error)
 
-            return await client.send_error(error)
+            await client.send_error(error)
+            return
 
         if message["type"] == "CHANNELS":
             message["data"] = self.fetch_channels(message)
@@ -111,6 +126,24 @@ class API(object):
 
         return await client.send_response(message)
 
+    async def verify(self, client: ClientConnection, message: dict):
+        if client.session.client is None:
+            self._log("Unauthorised client tried to verify a channel")
+
+            await client.send_error("must login before attempting to verify a channel")
+            return
+
+        error = self.validate_verify_message(message)
+        if error is not None:
+            self._log(error)
+
+            await client.send_error(error)
+            return
+
+        message["client_username"] = client.session.client.username
+
+        await self.pool.verify_bot.send_json(message)
+
     def fetch_channels(self, message: dict) -> dict:
         if message["title"] is not "":
             title_query = Channel.title ** "%{0}%".format(message["title"])
@@ -120,7 +153,7 @@ class API(object):
         if message["category"] is not "":
             category_query = Channel.category == message["category"]
         else:
-            category_query = (Channel.category ** "%") | (Channel.category == "")
+            category_query = (Channel.category.is_null(True)) | (Channel.category.is_null(False))
 
         if len(message["members"]) >= 2:
             members_query = Channel.members.between(message["members"][0], message["members"][1])
@@ -216,6 +249,11 @@ class API(object):
 
         elif message["type"] == "STICKERS":
             pass
+
+    @staticmethod
+    def validate_verify_message(message: dict) -> str:
+        if "channel_username" not in message or not isinstance(message["channel_username"], str):
+            return "channel_username is missing"
 
     def generate_id(self) -> str:
         connection_id = "".join(random.sample("ABCDEFGHIJKLMNOPQRSTUVWXYZ", 8))
