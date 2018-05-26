@@ -69,6 +69,7 @@ class Channel(Base):
     members = Column(Integer, nullable=False)
     members_growth = Column(Integer, nullable=False)
     views = Column(Integer, nullable=False)
+    views_in_total = Column(Integer, nullable=False)
     views_growth = Column(Integer, nullable=False)
     vip = Column(Boolean)
     verified = Column(Boolean)
