@@ -16,14 +16,12 @@ class Pool(object):
         self.routes = [
             web.get(self.config["update_endpoint"], self.process_update_connection),
             web.get(self.config["auth_endpoint"], self.process_auth_connection),
-            web.get(self.config["verify_endpoint"], self.process_verify_connection),
         ]
 
         self.pending_tasks = []
 
         self.auth_bot = None
         self.update_bot = None
-        self.verify_bot = None
 
         self.clients = {}
 
@@ -95,6 +93,20 @@ class Pool(object):
 
             channel.save()
 
+            for admin in message["channel"]["admins"]:
+                channel_admin = ChannelAdmin()
+                channel_admin.channel = channel
+                channel_admin.admin = Client.get_or_create(
+                    user_id=admin["id"],
+                    defaults={
+                        "first_name": admin["first_name"],
+                        "username": admin["username"],
+                        "language_code": admin["language_code"],
+                        "photo": admin["photo"],
+                    }
+                )
+                channel_admin.save()
+
             self._log("Updated channel %s" % channel.username)
 
     async def process_auth_connection(self, request: web.Request) -> web.WebSocketResponse:
@@ -145,28 +157,3 @@ class Pool(object):
             self._log("Auth sending to client")
             await self.clients[message["session_id"]][message["connection_id"]].send_response(message)
             self._log("Auth sent to client")
-
-    async def process_verify_connection(self, request: web.Request) -> web.WebSocketResponse:
-        self._log("New verify bot connected")
-
-        connection = await self.prepare_connection(request)
-
-        self.verify_bot = connection
-
-        await self.process_messages(connection, self.process_verify_message)
-
-        self.verify_bot = None
-
-        return connection
-
-    async def process_verify_message(self, message: dict):
-        if message["is_admin"]:
-            channel = Channel.get(Channel.username == message["channel_username"])
-            client = Client.get(Client.username == message["client_username"])
-
-            channel_admin = ChannelAdmin()
-            channel_admin.channel = channel
-            channel_admin.admin = client
-            channel_admin.save()
-
-        await self.clients[message["session_id"]][message["connection_id"]].send_response(message)

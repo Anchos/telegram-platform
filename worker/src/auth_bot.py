@@ -74,30 +74,20 @@ class AuthBot(BaseWorker):
             command = text[0]
 
             if command == "/start":
-                session_id = text[1].split("_")[0]
-                connection_id = text[1].split("_")[1]
-
                 response = {
                     "action": "AUTH",
                     "type": "EVENT",
-                    "session_id": session_id,
-                    "connection_id": connection_id,
+                    "session_id": text[1].split("_")[0],
+                    "connection_id": text[1].split("_")[1],
                     "user_id": update["from"]["id"],
                     "first_name": update["from"]["first_name"],
                     "username": update["from"]["username"],
                     "language_code": update["from"]["language_code"],
+                    "photo": get_user_profile_photo(
+                        bot_token=get_bot_token(),
+                        user_id=update["from"]["id"],
+                    ),
                 }
-
-                file_id = (await send_telegram_request(
-                    bot_token=self.config["bot_token"],
-                    method="getUserProfilePhotos",
-                    payload={"user_id": update["from"]["id"], "limit": 1},
-                ))["result"]["photos"][0][2]["file_id"]
-
-                response["photo"] = await get_telegram_file(
-                    bot_token=self.config["bot_token"],
-                    file_id=file_id
-                )
 
                 await self.send_response_to_server(response)
 
