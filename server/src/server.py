@@ -6,9 +6,9 @@ from aiohttp import web
 
 class Server(object):
     def __init__(self):
-        with open("config.json") as file:
-            self._config = json.loads(file.read())["server"]
-            file.close()
+        file = open("config.json")
+        self._config = json.loads(file.read())["server"]
+        file.close()
 
         self._app = web.Application()
 

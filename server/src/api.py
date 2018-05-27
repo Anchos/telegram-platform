@@ -8,7 +8,7 @@ import peewee
 from aiohttp import web
 
 from .client import ClientConnection
-from .models import Session, Channel
+from .models import Session, Channel, ChannelAdmin
 from .pool import Pool
 
 
@@ -140,9 +140,18 @@ class API(object):
             await client.send_error(error)
             return
 
-        message["client_username"] = client.session.client.username
+        channel_admin = ChannelAdmin.get_or_none(ChannelAdmin.admin == client.session.client)
 
-        await self.pool.verify_bot.send_json(message)
+        if channel_admin is not None:
+            await client.send_response({
+                "is_admin": True
+            })
+
+            channel_admin.channel.verified = True
+            channel_admin.channel.save()
+
+        else:
+            await client.send_error("client is not admin")
 
     def fetch_channels(self, message: dict) -> dict:
         if message["title"] is not "":

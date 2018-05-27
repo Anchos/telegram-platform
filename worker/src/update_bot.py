@@ -1,8 +1,7 @@
-import json
 import logging
 
 from .base_worker import BaseWorker
-from .common import get_telegram_file, send_telegram_request, get_bot_token
+from .common import *
 
 
 class UpdateBot(BaseWorker):
@@ -48,6 +47,23 @@ class UpdateBot(BaseWorker):
             payload={"chat_id": chat_id}
         ))["result"]
 
+        admins = (await send_telegram_request(
+            bot_token=get_bot_token(),
+            method="getChatAdministrators",
+            payload={"chat_id": chat_id}
+        ))["result"]
+
+        for x in range(len(admins)):
+            admins[x] = (await send_telegram_request(
+                bot_token=get_bot_token(),
+                method="getChatMember",
+                payload={"chat_id": chat_id, "user_id": "@" + admins[0]}
+            ))["result"]["user"]
+            admins[x]["photo"] = get_user_profile_photo(
+                bot_token=get_bot_token(),
+                user_id=admins[x]["id"]
+            )
+
         self._log("Fetched channel %s" % chat["username"])
 
         return {
@@ -59,7 +75,8 @@ class UpdateBot(BaseWorker):
                 file_id=chat["photo"]["big_file_id"]
             ),
             "description": chat.get("description", ""),
-            "members": members
+            "members": members,
+            "admins": admins,
         }
 
     async def update_user(self, username: str) -> dict:
