@@ -51,4 +51,8 @@ def upgrade():
 
 
 def downgrade():
-    pass
+    op.execute(
+        """
+        TRUNCATE TABLE category CASCADE;
+        """
+    )
