@@ -1,0 +1,19 @@
+server {
+    listen 80;
+
+    server_name recursion.ga;
+
+    location /.well-known/acme-challenge {
+        alias /var/www/dehydrated;
+    }
+}
+
+server {
+    listen 80;
+
+    server_name ws.recursion.ga;
+
+    location /.well-known/acme-challenge {
+        alias /var/www/dehydrated;
+    }
+}

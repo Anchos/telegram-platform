@@ -2,7 +2,9 @@ FROM nginx:latest
 
 COPY setup.sh /
 
-COPY default.nginx /etc/nginx/conf.d/default.conf
+COPY temp_default.nginx /etc/nginx/conf.d/default.conf
+
+COPY default.nginx /
 
 RUN nginx -t
 

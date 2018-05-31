@@ -1,11 +1,17 @@
 resolver 127.0.0.11;
 
 server {
-    listen 80;
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name recursion.ga;
+    return 301 https://$server_name$request_uri;
+}
+
+server {
     listen 443 ssl;
 
-    #ssl_certificate /etc/dehydrated-master/certs/recursion.ga/fullchain.pem;
-    #ssl_certificate_key /etc/dehydrated-master/certs/recursion.ga/privkey.pem;
+    ssl_certificate /etc/dehydrated-master/certs/recursion.ga/fullchain.pem;
+    ssl_certificate_key /etc/dehydrated-master/certs/recursion.ga/privkey.pem;
 
     server_name recursion.ga;
 
@@ -31,11 +37,10 @@ server {
 }
 
 server {
-    listen 80;
     listen 443 ssl;
 
-    #ssl_certificate /etc/dehydrated-master/certs/ws.recursion.ga/fullchain.pem;
-    #ssl_certificate_key /etc/dehydrated-master/certs/ws.recursion.ga/privkey.pem;
+    ssl_certificate /etc/dehydrated-master/certs/ws.recursion.ga/fullchain.pem;
+    ssl_certificate_key /etc/dehydrated-master/certs/ws.recursion.ga/privkey.pem;
 
     server_name ws.recursion.ga;
 
@@ -43,7 +48,7 @@ server {
         alias /var/www/dehydrated;
     }
 
-    location / {
+    location /client {
         proxy_pass http://0.0.0.0:5000;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
