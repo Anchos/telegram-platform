@@ -4,7 +4,7 @@ COPY setup.sh /
 
 COPY temp_default.nginx /etc/nginx/conf.d/default.conf
 
-COPY default.nginx /
+COPY default.nginx /default.conf
 
 RUN nginx -t
 
