@@ -83,7 +83,7 @@ class AuthBot(BaseWorker):
                     "first_name": update["from"]["first_name"],
                     "username": update["from"]["username"],
                     "language_code": update["from"]["language_code"],
-                    "photo": get_user_profile_photo(
+                    "photo": await get_user_profile_photo(
                         bot_token=get_bot_token(),
                         user_id=update["from"]["id"],
                     ),

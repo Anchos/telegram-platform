@@ -1,0 +1,52 @@
+resolver 127.0.0.11;
+
+server {
+    listen 80;
+    listen 443 ssl;
+
+    #ssl_certificate /etc/dehydrated-master/certs/recursion.ga/fullchain.pem;
+    #ssl_certificate_key /etc/dehydrated-master/certs/recursion.ga/privkey.pem;
+
+    server_name recursion.ga;
+
+    index index.html;
+
+    root /var/www/frontend/stage/current/dist;
+
+    location /.well-known/acme-challenge {
+        alias /var/www/dehydrated;
+    }
+
+    location ~* ^.+\.(js|css|less|png|jpg|jpeg|gif|pdf|doc|ico|rss|zip|mp3|rar|exe|wmv|doc|avi|ppt|mpg|mpeg|tif|wav|mov|psd|ai|xls|mp4|m4a|swf|dat|dmg|iso|flv|m4v|torrent|ttf|woff|woff2|svg|eot)$ {
+        gzip_vary on;
+        gzip_static on;
+        add_header Cache-Control public;
+        expires 365d;
+        access_log off;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html =404;
+    }
+}
+
+server {
+    listen 80;
+    listen 443 ssl;
+
+    #ssl_certificate /etc/dehydrated-master/certs/ws.recursion.ga/fullchain.pem;
+    #ssl_certificate_key /etc/dehydrated-master/certs/ws.recursion.ga/privkey.pem;
+
+    server_name ws.recursion.ga;
+
+    location /.well-known/acme-challenge {
+        alias /var/www/dehydrated;
+    }
+
+    location / {
+        proxy_pass http://0.0.0.0:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "Upgrade";
+    }
+}

@@ -59,7 +59,7 @@ class UpdateBot(BaseWorker):
                 method="getChatMember",
                 payload={"chat_id": chat_id, "user_id": "@" + admins[0]}
             ))["result"]["user"]
-            admins[x]["photo"] = get_user_profile_photo(
+            admins[x]["photo"] = await get_user_profile_photo(
                 bot_token=get_bot_token(),
                 user_id=admins[x]["id"]
             )
