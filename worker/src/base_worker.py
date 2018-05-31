@@ -45,7 +45,9 @@ class BaseWorker(object):
             self._log("Connected")
 
             await self.process_connection(self._server_connection)
-        except:
+        except Exception as e:
+            self._log("Error: %s" % e)
+
             self._log("Could not connect")
 
         self._log("Reconnecting")

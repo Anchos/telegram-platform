@@ -74,6 +74,9 @@ class Pool(object):
 
     async def process_update_message(self, message: dict):
         if message["type"] == "CHANNEL":
+
+            self._log("UPDATE response")
+
             if not message["channel"]:
                 return
 
@@ -93,19 +96,17 @@ class Pool(object):
 
             channel.save()
 
-            for admin in message["channel"]["admins"]:
-                channel_admin = ChannelAdmin()
-                channel_admin.channel = channel
-                channel_admin.admin = Client.get_or_create(
-                    user_id=admin["id"],
-                    defaults={
-                        "first_name": admin["first_name"],
-                        "username": admin["username"],
-                        "language_code": admin["language_code"],
-                        "photo": admin["photo"],
-                    }
-                )
-                channel_admin.save()
+            channel_admin = ChannelAdmin()
+            channel_admin.channel = channel
+            channel_admin.admin = Client.get_or_create(
+                user_id=message["channel"]["admin"]["id"],
+                defaults={
+                    "first_name": message["channel"]["admin"]["first_name"],
+                    "username": message["channel"]["admin"]["username"],
+                    "photo": message["channel"]["admin"]["photo"],
+                }
+            )
+            channel_admin.save()
 
             self._log("Updated channel %s" % channel.username)
 

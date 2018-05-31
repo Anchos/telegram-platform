@@ -89,10 +89,6 @@ class AuthBot(BaseWorker):
                     ),
                 }
 
-                self._log(update["from"]["id"])
-
-                self._log(response["photo"])
-
                 await self.send_response_to_server(response)
 
         except Exception as e:

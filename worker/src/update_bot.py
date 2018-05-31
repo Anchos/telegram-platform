@@ -27,6 +27,8 @@ class UpdateBot(BaseWorker):
 
         await self.send_response_to_server(message)
 
+        self._log("Sent UPDATE to server")
+
     async def update_channel(self, chat_id: str) -> dict:
         response = await send_telegram_request(
             bot_token=get_bot_token(),
@@ -39,7 +41,12 @@ class UpdateBot(BaseWorker):
 
             return {}
 
+        else:
+            self._log("Channel exists")
+
         chat = response["result"]
+
+        self._log("Chat: %s" % chat)
 
         members = (await send_telegram_request(
             bot_token=get_bot_token(),
@@ -47,36 +54,44 @@ class UpdateBot(BaseWorker):
             payload={"chat_id": chat_id}
         ))["result"]
 
+        self._log("Members count: %s" % members)
+
         admins = (await send_telegram_request(
             bot_token=get_bot_token(),
             method="getChatAdministrators",
             payload={"chat_id": chat_id}
         ))["result"]
 
-        for x in range(len(admins)):
-            admins[x] = (await send_telegram_request(
-                bot_token=get_bot_token(),
-                method="getChatMember",
-                payload={"chat_id": chat_id, "user_id": "@" + admins[0]}
-            ))["result"]["user"]
-            admins[x]["photo"] = await get_user_profile_photo(
-                bot_token=get_bot_token(),
-                user_id=admins[x]["id"]
-            )
+        self._log("Admins: %s" % admins)
+
+        for admin in admins:
+            if admin["status"] == "creator":
+                admin = admin["user"]
+                admin["photo"] = await get_user_profile_photo(
+                    bot_token=get_bot_token(),
+                    user_id=admin["id"]
+                )
+                break
+
+        self._log("Creator: %s" % admin)
+
+        photo = await get_telegram_file(
+            bot_token=get_bot_token(),
+            file_id=chat["photo"]["big_file_id"]
+        )
+
+        self._log("Photo: %s" % photo)
 
         self._log("Fetched channel %s" % chat["username"])
 
         return {
             "telegram_id": chat["id"],
             "title": chat["title"],
-            "username": "@" + chat.get("username", "anon4k"),
-            "photo": await get_telegram_file(
-                bot_token=get_bot_token(),
-                file_id=chat["photo"]["big_file_id"]
-            ),
+            "username": "@" + chat.get("username", ""),
+            "photo": photo,
             "description": chat.get("description", ""),
             "members": members,
-            "admins": admins,
+            "admin": admin,
         }
 
     async def update_user(self, username: str) -> dict:

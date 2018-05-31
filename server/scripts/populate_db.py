@@ -27,6 +27,7 @@ async def main():
         "type": "CHANNEL",
         "channel": "@hcdev",
     })
+
     time.sleep(10)
 
     for channel in channels:
