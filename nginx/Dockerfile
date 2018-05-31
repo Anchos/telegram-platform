@@ -18,7 +18,7 @@ RUN unzip master.zip -d /etc/ && rm -rf master.zip
 
 WORKDIR /etc/dehydrated-master
 
-RUN printf 'WELLKNOWN="/var/www/dehydrated"' >> config
+RUN printf 'WELLKNOWN="/var/www/dehydrated"\nCA="https://acme-staging.api.letsencrypt.org/directory"' >> config
 
 RUN mkdir -p /var/www/dehydrated/
 

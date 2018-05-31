@@ -84,14 +84,18 @@ class AuthBot(BaseWorker):
                     "username": update["from"]["username"],
                     "language_code": update["from"]["language_code"],
                     "photo": await get_user_profile_photo(
-                        bot_token=get_bot_token(),
+                        bot_token=self.config["bot_token"],
                         user_id=update["from"]["id"],
                     ),
                 }
 
+                self._log(update["from"]["id"])
+
+                self._log(response["photo"])
+
                 await self.send_response_to_server(response)
 
         except Exception as e:
-            self._log(str(e))
+            self._log("Error during login: %s" % e)
 
         return web.Response()
