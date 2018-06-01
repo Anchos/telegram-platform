@@ -3,6 +3,8 @@ import logging
 
 from aiohttp import web
 
+from .api import API
+
 
 class Server(object):
     def __init__(self):
@@ -10,7 +12,10 @@ class Server(object):
         self._config = json.loads(file.read())["server"]
         file.close()
 
-        self._app = web.Application()
+        self.app = web.Application()
+        self.API = API()
+
+        self.app.add_routes(self.API.routes)
 
     @staticmethod
     def _log(message: str):
@@ -20,10 +25,7 @@ class Server(object):
         self._log("STARTING")
 
         web.run_app(
-            self._app,
+            self.app,
             host=self._config["host"],
             port=self._config["port"],
         )
-
-    def add_routes(self, routes):
-        self._app.add_routes(routes)
