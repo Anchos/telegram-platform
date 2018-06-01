@@ -1,5 +1,5 @@
 # coding: utf-8
-from sqlalchemy import BigInteger, Boolean, Column, DateTime, ForeignKey, Integer, String, Text, text
+from sqlalchemy import BigInteger, Boolean, Column, DateTime, ForeignKey, Integer, String, Text, DECIMAL
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 
@@ -32,6 +32,7 @@ class Client(Base):
     user_id = Column(Integer, nullable=False, unique=True)
     first_name = Column(String(255), nullable=False)
     username = Column(String(255))
+    balance = Column(DECIMAL(12, 2), nullable=True)
     language_code = Column(String(255), nullable=False)
     photo = Column(String(255))
 
@@ -69,7 +70,6 @@ class Channel(Base):
     members = Column(Integer, nullable=False)
     members_growth = Column(Integer, nullable=False)
     views = Column(Integer, nullable=False)
-    views_in_total = Column(Integer, nullable=False)
     views_growth = Column(Integer, nullable=False)
     vip = Column(Boolean)
     verified = Column(Boolean)

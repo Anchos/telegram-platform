@@ -30,6 +30,7 @@ class Client(BaseModel):
     user_id = peewee.IntegerField(unique=True)
     first_name = peewee.CharField(null=True)
     username = peewee.CharField(null=True)
+    balance = peewee.DecimalField(12, 2)
     language_code = peewee.CharField(null=True)
     photo = peewee.CharField(null=True)
 
