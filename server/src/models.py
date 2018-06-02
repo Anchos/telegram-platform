@@ -54,18 +54,18 @@ class Category(BaseModel):
 
 class Channel(BaseModel):
     telegram_id = peewee.BigIntegerField(default=0, unique=True)
-    title = peewee.CharField(default="")
-    username = peewee.CharField(default="")
-    photo = peewee.CharField(default="")
-    description = peewee.TextField(default="")
+    title = peewee.CharField()
+    username = peewee.CharField(null=True)
+    photo = peewee.CharField(null=True)
+    description = peewee.TextField(null=True)
     cost = peewee.IntegerField(default=0)
-    language = peewee.CharField(default="", null=True)
+    language = peewee.CharField(null=True)
     members = peewee.IntegerField(default=0)
     members_growth = peewee.IntegerField(default=0)
     views = peewee.IntegerField(default=0)
     views_growth = peewee.IntegerField(default=0)
-    vip = peewee.BooleanField(default=False, null=True)
-    verified = peewee.BooleanField(default=False, null=True)
+    vip = peewee.BooleanField(default=False)
+    verified = peewee.BooleanField(default=False)
     category = peewee.ForeignKeyField(Category, null=True)
 
 

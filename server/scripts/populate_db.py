@@ -5,7 +5,6 @@ import aiohttp
 
 async def main():
     server_connection = await aiohttp.ClientSession().ws_connect(
-        # url="http://159.65.126.202:5000/client",
         verify_ssl=False,
         url="https://ws.recursion.ga/client",
         autoping=True,
@@ -29,16 +28,16 @@ async def main():
         "username": "@hcdev",
     })
 
-    await asyncio.sleep(10)
-
     for channel in channels:
+        await asyncio.sleep(15)
+
+        print("@" + channel.strip())
         await server_connection.send_json({
             "id": 0,
             "action": "UPDATE_CHANNEL",
             "type": "CHANNEL",
             "username": "@" + channel.strip()
         })
-        await asyncio.sleep(60)
 
 
 if __name__ == "__main__":

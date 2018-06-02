@@ -246,7 +246,8 @@ class API(object):
         if "result" not in response:
             API._log("Channel does not exist")
 
-            client.send_error("channel does not exist")
+            await client.send_error("channel does not exist")
+            return
 
         else:
             API._log("Channel exists")
@@ -296,7 +297,7 @@ class API(object):
 
         API._log("Photo: %s" % chat["photo"])
 
-        API._log("Fetched channel %s" % chat["username"])
+        API._log("Fetched channel %s" % "@" + chat["username"])
 
         try:
             channel = Channel.get(Channel.telegram_id == chat["id"])
