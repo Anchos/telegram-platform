@@ -29,7 +29,7 @@ async def main():
     })
 
     for channel in channels:
-        await asyncio.sleep(17)
+        await asyncio.sleep(15)
 
         print("@" + channel.strip())
         await server_connection.send_json({

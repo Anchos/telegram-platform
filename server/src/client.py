@@ -10,6 +10,10 @@ class ClientConnection(object):
         self.connection_id = None
         self.session = None
 
+        file = open("config.json")
+        self.config = json.loads(file.read())["client"]
+        file.close()
+
         from .api import API
 
         self.actions = {
@@ -35,7 +39,7 @@ class ClientConnection(object):
 
     async def prepare_connection(self, request: web.Request) -> web.WebSocketResponse:
         connection = web.WebSocketResponse(
-            heartbeat=10,
+            heartbeat=self.config["ping_interval"] if self.config["ping_enabled"] else None,
             autoping=True,
         )
         await connection.prepare(request)
