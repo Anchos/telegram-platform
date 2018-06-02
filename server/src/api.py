@@ -290,12 +290,13 @@ class API(object):
         else:
             admins = []
 
-        chat["photo"] = await Telegram.get_telegram_file(
-            bot_token=Telegram.get_bot_token(),
-            file_id=chat["photo"]["big_file_id"]
-        )
+        if "photo" in chat:
+            chat["photo"] = await Telegram.get_telegram_file(
+                bot_token=Telegram.get_bot_token(),
+                file_id=chat["photo"]["big_file_id"]
+            )
 
-        API._log("Photo: %s" % chat["photo"])
+            API._log("Photo: %s" % chat["photo"])
 
         API._log("Fetched channel %s" % "@" + chat["username"])
 
@@ -312,7 +313,7 @@ class API(object):
         channel.telegram_id = chat["id"]
         channel.username = "@" + chat["username"]
         channel.title = chat["title"]
-        channel.photo = chat["photo"]
+        channel.photo = chat.get("photo", None)
         channel.description = chat.get("description", None)
         channel.members = chat["members"]
 
