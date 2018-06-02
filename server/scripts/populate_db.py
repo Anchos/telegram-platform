@@ -1,5 +1,4 @@
 import asyncio
-import time
 
 import aiohttp
 
@@ -30,7 +29,7 @@ async def main():
         "username": "@hcdev",
     })
 
-    time.sleep(60)
+    await asyncio.sleep(10)
 
     for channel in channels:
         await server_connection.send_json({
@@ -39,7 +38,7 @@ async def main():
             "type": "CHANNEL",
             "username": "@" + channel.strip()
         })
-        time.sleep(60)
+        await asyncio.sleep(60)
 
 
 if __name__ == "__main__":

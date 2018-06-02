@@ -267,22 +267,27 @@ class API(object):
             bot_token=Telegram.get_bot_token(),
             method="getChatAdministrators",
             payload={"chat_id": message["username"]}
-        ))["result"]
+        ))
 
-        API._log("Admins: %s" % admins)
+        if "result" in admins:
+            admins = admins["result"]
 
-        for x in range(len(admins)):
-            admins[x] = admins[x]["user"]
-            try:
-                API._log(admins[x]["id"])
-                admins[x]["photo"] = await Telegram.get_user_profile_photo(
-                    bot_token=Telegram.get_bot_token(),
-                    user_id=admins[x]["id"],
-                )
-                API._log(admins[x]["photo"])
+            API._log("Admins: %s" % admins)
 
-            except Exception as e:
-                API._log(str(e))
+            for x in range(len(admins)):
+                admins[x] = admins[x]["user"]
+                try:
+                    API._log(admins[x]["id"])
+                    admins[x]["photo"] = await Telegram.get_user_profile_photo(
+                        bot_token=Telegram.get_bot_token(),
+                        user_id=admins[x]["id"],
+                    )
+                    API._log(admins[x]["photo"])
+
+                except Exception as e:
+                    API._log(str(e))
+        else:
+            admins = []
 
         chat["photo"] = await Telegram.get_telegram_file(
             bot_token=Telegram.get_bot_token(),
