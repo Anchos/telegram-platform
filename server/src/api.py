@@ -2,12 +2,12 @@ import datetime
 import json
 import logging
 import random
+import uuid
 
 import peewee
 from aiohttp import web
 
 from .client import ClientConnection
-from .generator import Generator
 from .models import Session, Channel, ChannelAdmin, Client
 from .pool import Pool
 from .telegram import Telegram
@@ -29,7 +29,7 @@ class API(object):
 
     @staticmethod
     def _log(message: str):
-        logging.info("[API] %s" % message)
+        logging.info(f"[API] {message}")
 
     def get_bot_token(self) -> str:
         return random.SystemRandom().choice(self.config["bot_tokens"])
@@ -48,9 +48,9 @@ class API(object):
         return connection
 
     async def telegram_request(self, request: web.Request) -> web.Response:
-        self._log("Telegram sent %s" % await request.text())
-
         update = json.loads(await request.text())["message"]
+
+        self._log(f"Telegram sent {update}")
 
         try:
             text = update["text"].split(" ")
@@ -90,7 +90,7 @@ class API(object):
                 await self.pool.clients[text[1]].send_response(response)
 
         except Exception as e:
-            self._log("Error during auth: %s" % e)
+            self._log(f"Error during auth: {e}")
 
         return web.Response()
 
@@ -111,7 +111,7 @@ class API(object):
             API._log("New session initialisation")
 
             client.session = Session.create(
-                session_id=Generator.generate_uuid(),
+                session_id=str(uuid.uuid4()),
                 expiration=datetime.datetime.now() + datetime.timedelta(days=2)
             )
 
@@ -142,7 +142,7 @@ class API(object):
             return
 
         if message["title"] is not "":
-            title_query = Channel.title ** "%{0}%".format(message["title"])
+            title_query = Channel.title ** f'%{message["title"]}%'
         else:
             title_query = Channel.title ** "%"
 
@@ -182,13 +182,15 @@ class API(object):
         max_members = Channel.select(peewee.fn.MAX(Channel.members)).scalar()
         max_cost = Channel.select(peewee.fn.MAX(Channel.cost)).scalar()
 
-        return {
+        message["data"] = {
             "items": [x.serialize() for x in channels],
             "categories": [{"category": x.category, "count": x.count} for x in categories],
             "total": total,
             "max_members": max_members,
             "max_cost": max_cost,
         }
+
+        await client.send_response(message)
 
     @staticmethod
     async def fetch_channel(client: ClientConnection, message: dict):
@@ -202,7 +204,9 @@ class API(object):
         except peewee.DoesNotExist:
             channel = Channel.select().order_by(peewee.fn.Random()).limit(1)
 
-        return channel.serialize()
+        message["data"] = channel.serialize()
+
+        await client.send_response(message)
 
     @staticmethod
     async def verify_channel(client: ClientConnection, message: dict):
@@ -254,7 +258,7 @@ class API(object):
 
         chat = response["result"]
 
-        API._log("Chat info: %s" % chat)
+        API._log(f"Chat info: {chat}")
 
         chat["members"] = (await Telegram.send_telegram_request(
             bot_token=Telegram.get_bot_token(),
@@ -262,7 +266,7 @@ class API(object):
             payload={"chat_id": message["username"]}
         ))["result"]
 
-        API._log("Members count: %s" % chat["members"])
+        API._log(f'Members count: {chat["members"]}')
 
         admins = (await Telegram.send_telegram_request(
             bot_token=Telegram.get_bot_token(),
@@ -273,7 +277,7 @@ class API(object):
         if "result" in admins:
             admins = admins["result"]
 
-            API._log("Admins: %s" % admins)
+            API._log(f"Admins: {admins}")
 
             for x in range(len(admins)):
                 admins[x] = admins[x]["user"]
@@ -296,9 +300,9 @@ class API(object):
                 file_id=chat["photo"]["big_file_id"]
             )
 
-            API._log("Photo: %s" % chat["photo"])
+            API._log(f'Photo: {chat["photo"]}')
 
-        API._log("Fetched channel %s" % "@" + chat["username"])
+        API._log(f'Fetched channel @{chat["username"]}')
 
         try:
             channel = Channel.get(Channel.telegram_id == chat["id"])
@@ -332,4 +336,4 @@ class API(object):
             )
             channel_admin.save()
 
-        API._log("Updated channel %s" % channel.username)
+        API._log(f"Updated channel {channel.username}")

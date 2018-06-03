@@ -26,13 +26,17 @@ class ClientConnection(object):
 
     @staticmethod
     def _log(message: str):
-        logging.info("[CLIENT] %s" % message)
+        logging.info(f"[CLIENT] {message}")
 
     async def send_response(self, response: dict):
         try:
             await self.connection.send_json(response)
-        except Exception as e:
-            self._log("Failed to send message %s" % e)
+        except RuntimeError:
+            self._log("Connection is not started or closing")
+        except ValueError:
+            self._log("Data is not serializable object")
+        except TypeError:
+            self._log("Value returned by dumps param is not str")
 
     async def send_error(self, error: str):
         await self.send_response({"error": error})
@@ -60,17 +64,17 @@ class ClientConnection(object):
                 await self.process_message(message)
 
             else:
-                self._log("Disconnected with exception %s" % self.connection.exception())
+                self._log(f"Disconnected with exception {self.connection.exception()}")
 
                 self.connection.close()
                 break
 
-        self._log("Disconnected %s" % self.connection.close_code)
+        self._log(f"Disconnected {self.connection.close_code}")
 
     async def process_message(self, message: dict):
         action = self.actions.get(message["action"], None)
         if action is None:
-            self._log("No such action %s" % message["action"])
+            self._log(f'No such action {message["action"]}')
             await self.send_error("no such action")
         else:
             await action(client=self, message=message)

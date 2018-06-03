@@ -5,8 +5,9 @@ import aiohttp
 
 async def main():
     server_connection = await aiohttp.ClientSession().ws_connect(
-        verify_ssl=False,
-        url="https://ws.recursion.ga/client",
+        # verify_ssl=False,
+        # url="https://ws.recursion.ga/client",
+        url="http://82.202.212.205:5000/client",
         autoping=True,
     )
 
@@ -29,7 +30,7 @@ async def main():
     })
 
     for channel in channels:
-        await asyncio.sleep(15)
+        await asyncio.sleep(30)
 
         print("@" + channel.strip())
         await server_connection.send_json({

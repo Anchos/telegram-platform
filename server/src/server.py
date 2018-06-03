@@ -19,7 +19,7 @@ class Server(object):
 
     @staticmethod
     def _log(message: str):
-        logging.info("[SERVER] %s" % message)
+        logging.info(f"[SERVER] {message}")
 
     def run(self):
         self._log("STARTING")

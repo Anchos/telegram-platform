@@ -10,7 +10,7 @@ class Pool(object):
 
     @staticmethod
     def _log(message: str):
-        logging.info("[POOL] %s" % message)
+        logging.info(f"[POOL] {message}")
 
     def add_client(self, client: ClientConnection):
         client.connection_id = self.generate_id()
