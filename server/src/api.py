@@ -8,154 +8,141 @@ import peewee
 from aiohttp import web
 
 from .client import ClientConnection
-from .models import Session, Channel, ChannelAdmin
+from .models import Session, Channel, ChannelAdmin, Client
 from .pool import Pool
+from .telegram import Telegram
+from .validation import MessageValidator
 
 
 class API(object):
     def __init__(self):
         file = open("config.json")
-        self._config = json.loads(file.read())["API"]
+        self.config = json.loads(file.read())["API"]
         file.close()
 
         self.pool = Pool()
 
-        self.pool.routes.append(
-            web.get(self.pool.config["client_endpoint"], self.process_client_connection)
-        )
+        self.routes = [
+            web.get(self.config["client_endpoint"], self.client_request),
+            web.get(self.config["bot_endpoint"], self.telegram_request)
+        ]
 
     @staticmethod
     def _log(message: str):
-        logging.info("[API] %s" % message)
+        logging.info(f"[API] {message}")
 
-    async def process_client_connection(self, request: web.Request) -> web.WebSocketResponse:
+    def get_bot_token(self) -> str:
+        return random.SystemRandom().choice(self.config["bot_tokens"])
+
+    async def client_request(self, request: web.Request) -> web.WebSocketResponse:
         self._log("New client connected")
 
-        connection = await self.pool.prepare_connection(request)
-        client = ClientConnection(connection)
+        client = ClientConnection()
 
-        await self.pool.process_messages(connection, self.process_client_messages, client)
+        connection = await client.prepare_connection(request)
+        self.pool.add_client(client)
 
-        self.delete_client(client)
+        await client.process_connection()
 
+        self.pool.remove_client(client)
         return connection
 
-    async def process_client_messages(self, message: dict, client: ClientConnection):
-        error = self.validate_message(message)
+    async def telegram_request(self, request: web.Request) -> web.Response:
+        update = json.loads(await request.text())["message"]
+
+        self._log(f"Telegram sent {update}")
+
+        try:
+            text = update["text"].split(" ")
+            command = text[0]
+
+            if command == "/start":
+                response = {
+                    "action": "AUTH",
+                    "type": "EVENT",
+                    "user_id": update["from"]["id"],
+                    "first_name": update["from"]["first_name"],
+                    "username": update["from"].get("username", None),
+                    "language_code": update["from"]["language_code"],
+                    "photo": await Telegram.get_user_profile_photo(
+                        bot_token=self.config["bot_token"],
+                        user_id=update["from"]["id"],
+                    ),
+                }
+
+                client, created = Client.get_or_create(
+                    user_id=update["from"]["id"],
+                    defaults={
+                        "first_name": response["first_name"],
+                        "username": response["username"],
+                        "language_code": response["language_code"],
+                        "photo": response["photo"],
+                    }
+                )
+
+                if created:
+                    self._log("New telegram client created")
+                else:
+                    self._log("Existing telegram client")
+
+                self.pool.clients[text[1]].session.client = client
+
+                await self.pool.clients[text[1]].send_response(response)
+
+        except Exception as e:
+            self._log(f"Error during auth: {e}")
+
+        return web.Response()
+
+    @staticmethod
+    async def init(client: ClientConnection, message: dict):
+        error = MessageValidator.validate_init(message)
         if error is not None:
-            self._log("Client sent bad request: %s" % error)
-
-            return await client.send_error(error)
-
-        self._log("%s request" % message["action"])
-
-        if message["action"] == "INIT":
-            await self.client_init(client, message)
+            await client.send_error(error)
             return
 
-        if client.session is None:
-            self._log("Attempt to call actions without INIT")
+        response = {
+            "id": message["id"],
+            "action": message["action"],
+            "expires_in": 172800,
+        }
 
-            await client.send_error("call INIT before calling other actions")
-            return
-
-        else:
-            message["session_id"] = client.session.session_id
-            message["connection_id"] = client.connection_id
-
-        if message["action"] == "UPDATE":
-            await self.update(message)
-
-        elif message["action"] == "FETCH":
-            await self.fetch(client, message)
-
-        elif message["action"] == "VERIFY":
-            await self.verify(client, message)
-
-        else:
-            self._log("ACTION NOT IMPLEMENTED")
-
-    async def update(self, message: dict):
-        await self.pool.update_bot.send_json(message)
-
-    async def client_init(self, client: ClientConnection, message: dict):
-        if "session_id" not in message or not Session.exists(message["session_id"]):
-            self._log("New session initialisation")
+        if not Session.exists(message["session_id"]):
+            API._log("New session initialisation")
 
             client.session = Session.create(
                 session_id=str(uuid.uuid4()),
                 expiration=datetime.datetime.now() + datetime.timedelta(days=2)
             )
 
-            self.add_client(client)
-
         else:
-            self._log("Existing session initialisation")
+            API._log("Existing session initialisation")
 
             client.session = Session.get(Session.session_id == message["session_id"])
 
-            self.add_client(client)
+            if client.session.client is not None:
+                response.update({
+                    "user_id": client.session.client.user_id,
+                    "first_name": client.session.client.first_name,
+                    "username": client.session.client.username,
+                    "language_code": client.session.client.language_code,
+                    "photo": client.session.client.photo,
+                })
 
-        await client.send_response({
-            "id": message["id"],
-            "action": message["action"],
-            "expires_in": 172800,
-            "session_id": client.session.session_id,
-            "connection_id": client.connection_id
-        })
+        response["session_id"] = client.session.session_id
+        response["connection_id"] = client.connection_id
 
-    async def fetch(self, client: ClientConnection, message: dict):
-        error = self.validate_fetch_message(message)
+        await client.send_response(response)
+
+    @staticmethod
+    async def fetch_channels(client: ClientConnection, message: dict):
+        error = MessageValidator.validate_fetch_channels(message)
         if error is not None:
-            self._log(error)
-
             await client.send_error(error)
             return
 
-        if message["type"] == "CHANNELS":
-            message["data"] = self.fetch_channels(message)
-
-        elif message["type"] == "CHANNEL":
-            message["data"] = self.fetch_channel(message)
-
-        elif message["type"] == "BOTS":
-            message["data"] = self.fetch_bots(message)
-
-        elif message["type"] == "STICKERS":
-            message["data"] = self.fetch_stickers(message)
-
-        return await client.send_response(message)
-
-    async def verify(self, client: ClientConnection, message: dict):
-        if client.session.client is None:
-            self._log("Unauthorised client tried to verify a channel")
-
-            await client.send_error("must login before attempting to verify a channel")
-            return
-
-        error = self.validate_verify_message(message)
-        if error is not None:
-            self._log(error)
-
-            await client.send_error(error)
-            return
-
-        channel_admin = ChannelAdmin.get_or_none(ChannelAdmin.admin == client.session.client)
-
-        if channel_admin is not None:
-            await client.send_response({
-                "is_admin": True
-            })
-
-            channel_admin.channel.verified = True
-            channel_admin.channel.save()
-
-        else:
-            await client.send_error("client is not admin")
-
-    def fetch_channels(self, message: dict) -> dict:
         if message["title"] is not "":
-            title_query = Channel.title ** "%{0}%".format(message["title"])
+            title_query = Channel.title ** f'%{message["title"]}%'
         else:
             title_query = Channel.title ** "%"
 
@@ -195,7 +182,7 @@ class API(object):
         max_members = Channel.select(peewee.fn.MAX(Channel.members)).scalar()
         max_cost = Channel.select(peewee.fn.MAX(Channel.cost)).scalar()
 
-        return {
+        message["data"] = {
             "items": [x.serialize() for x in channels],
             "categories": [{"category": x.category, "count": x.count} for x in categories],
             "total": total,
@@ -203,96 +190,150 @@ class API(object):
             "max_cost": max_cost,
         }
 
-    def fetch_channel(self, message: dict) -> dict:
+        await client.send_response(message)
+
+    @staticmethod
+    async def fetch_channel(client: ClientConnection, message: dict):
+        error = MessageValidator.validate_fetch_channel(message)
+        if error is not None:
+            await client.send_error(error)
+            return
+
         try:
             channel = Channel.get(Channel.username == message["username"])
         except peewee.DoesNotExist:
             channel = Channel.select().order_by(peewee.fn.Random()).limit(1)
 
-        return channel.serialize()
+        message["data"] = channel.serialize()
 
-    def fetch_bots(self, message: dict) -> list:
-        pass
-
-    def fetch_stickers(self, message: dict) -> list:
-        pass
+        await client.send_response(message)
 
     @staticmethod
-    def validate_message(message: dict) -> str:
-        if "id" not in message or not isinstance(message["id"], int):
-            return "id is missing"
+    async def verify_channel(client: ClientConnection, message: dict):
+        error = MessageValidator.validate_verify_channel(message)
+        if error is not None:
+            await client.send_error(error)
+            return
 
-        elif "action" not in message or not isinstance(message["action"], str):
-            return "action is missing"
+        if client.session.client is None:
+            API._log("Unauthorised client tried to verify a channel")
 
-        elif "type" not in message or not isinstance(message["type"], str):
-            return "type is missing"
+            await client.send_error("client must login before attempting to verify a channel")
+            return
 
-    @staticmethod
-    def validate_fetch_message(message: dict) -> str:
-        if message["type"] == "CHANNELS":
-            if "count" not in message or not isinstance(message["count"], int):
-                return "count is missing"
+        channel_admin = ChannelAdmin.get_or_none(ChannelAdmin.admin == client.session.client)
 
-            if "offset" not in message or not isinstance(message["offset"], int):
-                return "offset is missing"
+        if channel_admin is not None:
+            channel_admin.channel.verified = True
+            channel_admin.channel.save()
 
-            if "title" not in message or not isinstance(message["title"], str):
-                return "title is missing"
-
-            if "category" not in message or not isinstance(message["category"], str):
-                return "category is missing"
-
-            if "members" not in message or not isinstance(message["members"], list):
-                return "members is missing"
-
-            if "cost" not in message or not isinstance(message["cost"], list):
-                return "cost is missing"
-
-        if message["type"] == "CHANNEL":
-            if "username" not in message or not isinstance(message["username"], str):
-                return "username is missing"
-
-        elif message["type"] == "BOTS":
-            pass
-
-        elif message["type"] == "STICKERS":
-            pass
-
-    @staticmethod
-    def validate_verify_message(message: dict) -> str:
-        if "channel_username" not in message or not isinstance(message["channel_username"], str):
-            return "channel_username is missing"
-
-    def generate_id(self) -> str:
-        connection_id = "".join(random.sample("ABCDEFGHIJKLMNOPQRSTUVWXYZ", 8))
-        for session in self.pool.clients:
-            if connection_id in self.pool.clients[session]:
-                return self.generate_id()
-        return connection_id
-
-    def client_exists(self, client: ClientConnection) -> bool:
-        if client.connection_id is None or client.session is None:
-            return False
-
-        for session in self.pool.clients:
-            if client.connection_id in self.pool.clients[session]:
-                return True
-
-        return False
-
-    def add_client(self, client: ClientConnection):
-        client.connection_id = self.generate_id()
-        if client.session.session_id not in self.pool.clients:
-            self.pool.clients[client.session.session_id] = {client.connection_id: client}
-        else:
-            self.pool.clients[client.session.session_id][client.connection_id] = client
-
-    def delete_client(self, client: ClientConnection):
-        if self.client_exists(client):
-            self._log("Client was initialised")
-
-            del self.pool.clients[client.session.session_id][client.connection_id]
+            await client.send_response({
+                "is_admin": True
+            })
 
         else:
-            self._log("Client was not initialised")
+            await client.send_error("client is not admin")
+
+    @staticmethod
+    async def update_channel(client: ClientConnection, message: dict):
+        error = MessageValidator.validate_update_channel(message)
+        if error is not None:
+            await client.send_error(error)
+            return
+
+        response = await Telegram.send_telegram_request(
+            bot_token=Telegram.get_bot_token(),
+            method="getChat",
+            payload={"chat_id": message["username"]}
+        )
+
+        if "result" not in response:
+            API._log("Channel does not exist")
+
+            await client.send_error("channel does not exist")
+            return
+
+        else:
+            API._log("Channel exists")
+
+        chat = response["result"]
+
+        API._log(f"Chat info: {chat}")
+
+        chat["members"] = (await Telegram.send_telegram_request(
+            bot_token=Telegram.get_bot_token(),
+            method="getChatMembersCount",
+            payload={"chat_id": message["username"]}
+        ))["result"]
+
+        API._log(f'Members count: {chat["members"]}')
+
+        admins = (await Telegram.send_telegram_request(
+            bot_token=Telegram.get_bot_token(),
+            method="getChatAdministrators",
+            payload={"chat_id": message["username"]}
+        ))
+
+        if "result" in admins:
+            admins = admins["result"]
+
+            API._log(f"Admins: {admins}")
+
+            for x in range(len(admins)):
+                admins[x] = admins[x]["user"]
+                try:
+                    API._log(admins[x]["id"])
+                    admins[x]["photo"] = await Telegram.get_user_profile_photo(
+                        bot_token=Telegram.get_bot_token(),
+                        user_id=admins[x]["id"],
+                    )
+                    API._log(admins[x]["photo"])
+
+                except Exception as e:
+                    API._log(str(e))
+        else:
+            admins = []
+
+        if "photo" in chat:
+            chat["photo"] = await Telegram.get_telegram_file(
+                bot_token=Telegram.get_bot_token(),
+                file_id=chat["photo"]["big_file_id"]
+            )
+
+            API._log(f'Photo: {chat["photo"]}')
+
+        API._log(f'Fetched channel @{chat["username"]}')
+
+        try:
+            channel = Channel.get(Channel.telegram_id == chat["id"])
+
+            API._log("Channel exists")
+
+        except peewee.DoesNotExist:
+            API._log("Creating new channel")
+
+            channel = Channel()
+
+        channel.telegram_id = chat["id"]
+        channel.username = "@" + chat["username"]
+        channel.title = chat["title"]
+        channel.photo = chat.get("photo", None)
+        channel.description = chat.get("description", None)
+        channel.members = chat["members"]
+
+        channel.save()
+
+        for admin in admins:
+            channel_admin = ChannelAdmin()
+            channel_admin.channel = channel
+            channel_admin.admin, _ = Client.get_or_create(
+                user_id=admin["id"],
+                defaults={
+                    "first_name": admin["first_name"],
+                    "username": admin.get("username", None),
+                    "photo": admin.get("photo", None),
+                }
+            )
+            channel_admin.save()
+
+        API._log(f"Updated channel {channel.username}")

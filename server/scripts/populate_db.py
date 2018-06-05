@@ -1,12 +1,13 @@
 import asyncio
-import time
 
 import aiohttp
 
 
 async def main():
     server_connection = await aiohttp.ClientSession().ws_connect(
-        url="http://159.65.126.202:5000/client",
+        # verify_ssl=False,
+        # url="https://ws.recursion.ga/client",
+        url="http://82.202.212.205:5000/client",
         autoping=True,
     )
 
@@ -23,21 +24,21 @@ async def main():
 
     await server_connection.send_json({
         "id": 0,
-        "action": "UPDATE",
+        "action": "UPDATE_CHANNEL",
         "type": "CHANNEL",
-        "channel": "@hcdev",
+        "username": "@hcdev",
     })
 
-    time.sleep(10)
-
     for channel in channels:
+        await asyncio.sleep(30)
+
+        print("@" + channel.strip())
         await server_connection.send_json({
             "id": 0,
-            "action": "UPDATE",
+            "action": "UPDATE_CHANNEL",
             "type": "CHANNEL",
-            "channel": "@" + channel.strip()
+            "username": "@" + channel.strip()
         })
-        time.sleep(10)
 
 
 if __name__ == "__main__":
