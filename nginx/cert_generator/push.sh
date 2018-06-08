@@ -1,0 +1,1 @@
+docker push chebyrash/tg-platform-cert-generator

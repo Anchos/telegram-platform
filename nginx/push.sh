@@ -1,1 +1,0 @@
-docker push chebyrash/tg-platform-nginx
