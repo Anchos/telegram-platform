@@ -8,7 +8,6 @@
     "bot_endpoint": "/webhook"
   },
   "telegram": {
-    "webhook_URL": "https://ws.recursion.ga/webhook",
     "auth_bot_token": "565797436:AAGfT6-vGZje6eX2LesWuhgJ322txXxq26I",
     "bot_tokens": [
       "507767507:AAEq2n1RF_KHpVutzcUx1oW61z9_5GJIRuA",

@@ -61,6 +61,9 @@ class ClientConnection(object):
 
                     self.send_error("invalid JSON")
                     continue
+
+                self._log(f"Client sent: {message}")
+
                 await self.process_message(message)
 
             else:
@@ -75,6 +78,9 @@ class ClientConnection(object):
         action = self.actions.get(message["action"], None)
         if action is None:
             self._log(f'No such action {message["action"]}')
+
             await self.send_error("no such action")
         else:
+            self._log(f'Action: {message["action"]}')
+
             await action(client=self, message=message)

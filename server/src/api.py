@@ -24,7 +24,7 @@ class API(object):
 
         self.routes = [
             web.get(self.config["client_endpoint"], self.client_request),
-            web.get(self.config["bot_endpoint"], self.telegram_request)
+            web.post(self.config["bot_endpoint"], self.telegram_request)
         ]
 
     @staticmethod
@@ -90,7 +90,7 @@ class API(object):
                 await self.pool.clients[text[1]].send_response(response)
 
         except Exception as e:
-            self._log(f"Error during auth: {e}")
+            self._log(f"Error during auth: {e.with_traceback()}")
 
         return web.Response()
 
@@ -201,7 +201,7 @@ class API(object):
 
         try:
             channel = Channel.get(Channel.username == message["username"])
-        except peewee.DoesNotExist:
+        except Channel.DoesNotExist:
             channel = Channel.select().order_by(peewee.fn.Random()).limit(1)
 
         message["data"] = channel.serialize()
@@ -309,7 +309,7 @@ class API(object):
 
             API._log("Channel exists")
 
-        except peewee.DoesNotExist:
+        except Channel.DoesNotExist:
             API._log("Creating new channel")
 
             channel = Channel()

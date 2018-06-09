@@ -24,21 +24,7 @@ class Telegram(object):
                 return await response.json()
 
     @staticmethod
-    async def set_webhook(bot_token: str, url: str) -> dict:
-        return await Telegram.send_telegram_request(
-            bot_token=bot_token,
-            method="setWebhook",
-            payload={"url": url}
-        )
-
-    @staticmethod
     async def get_user_profile_photo(bot_token: str, user_id: int) -> str:
-        response = await Telegram.send_telegram_request(
-            bot_token=bot_token,
-            method="getUserProfilePhotos",
-            payload={"user_id": user_id, "limit": 1},
-        )
-
         file_id = (await Telegram.send_telegram_request(
             bot_token=bot_token,
             method="getUserProfilePhotos",
@@ -54,11 +40,13 @@ class Telegram(object):
     async def get_telegram_file(bot_token: str, file_id: id) -> str:
         session = aiohttp.ClientSession(connector=aiohttp.TCPConnector(verify_ssl=False))
 
-        async with session:
-            url = "https://api.telegram.org/bot{0}/{1}".format(bot_token, "getFile")
-            async with session.get(url=url, data={"file_id": file_id}) as response:
-                file_path = (await response.json())["result"]["file_path"]
+        file_path = await Telegram.send_telegram_request(
+            bot_token=bot_token,
+            method="getFile",
+            payload={"file_id": file_id}
+        )
 
+        async with session:
             url = "https://api.telegram.org/file/bot{0}/{1}".format(bot_token, file_path)
             async with session.get(url=url) as response:
                 bytes_file = BytesIO(await response.read())
