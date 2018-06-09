@@ -11,18 +11,18 @@ class Bot(Base):
     __tablename__ = 'bot'
 
     id = Column(Integer, primary_key=True)
-    title = Column(String(255), nullable=False)
-    username = Column(String(255), nullable=False)
-    photo = Column(String(255))
-    category = Column(String(255))
-    description = Column(Text)
+    title = Column(String(255), default="")
+    username = Column(String(255), default=True)
+    photo = Column(String(255), nullable=True)
+    category = Column(String(255), nullable=True)
+    description = Column(Text, nullable=True)
 
 
 class Category(Base):
     __tablename__ = 'category'
 
     id = Column(Integer, primary_key=True)
-    name = Column(String(255), nullable=False)
+    name = Column(String(255), default="")
 
 
 class Client(Base):
@@ -30,23 +30,23 @@ class Client(Base):
 
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, nullable=False, unique=True)
-    first_name = Column(String(255), nullable=False)
-    username = Column(String(255))
+    first_name = Column(String(255), nullable=True)
+    username = Column(String(255), nullable=True)
     balance = Column(DECIMAL(12, 2), nullable=True)
-    language_code = Column(String(255), nullable=False)
-    photo = Column(String(255))
+    language_code = Column(String(255), nullable=True)
+    photo = Column(String(255), nullable=True)
 
 
 class Sticker(Base):
     __tablename__ = 'sticker'
 
     id = Column(Integer, primary_key=True)
-    title = Column(String(255), nullable=False)
-    username = Column(String(255), nullable=False)
-    photo = Column(String(255))
-    category = Column(String(255))
-    installs = Column(Integer, nullable=False)
-    language = Column(String(255))
+    title = Column(String(255), default="")
+    username = Column(String(255), default="")
+    photo = Column(String(255), nullable=True)
+    category = Column(String(255), nullable=True)
+    installs = Column(Integer, default=0)
+    language = Column(String(255), nullable=True)
 
 
 class Tag(Base):
@@ -62,18 +62,18 @@ class Channel(Base):
     id = Column(Integer, primary_key=True)
     telegram_id = Column(BigInteger, nullable=False, unique=True)
     title = Column(String(255), nullable=False)
-    username = Column(String(255), nullable=False)
-    photo = Column(String(255), nullable=False)
-    description = Column(Text, nullable=False)
-    cost = Column(Integer, nullable=False)
-    language = Column(String(255))
-    members = Column(Integer, nullable=False)
-    members_growth = Column(Integer, nullable=False)
-    views = Column(Integer, nullable=False)
-    views_growth = Column(Integer, nullable=False)
-    vip = Column(Boolean)
-    verified = Column(Boolean)
-    category_id = Column(ForeignKey('category.id'), index=True)
+    username = Column(String(255), nullable=True)
+    photo = Column(String(255), nullable=True)
+    description = Column(Text, nullable=True)
+    cost = Column(Integer, nullable=False, default=0)
+    language = Column(String(255), nullable=True)
+    members = Column(Integer, nullable=False, default=0)
+    members_growth = Column(Integer, nullable=False, default=0)
+    views = Column(Integer, nullable=False, default=0)
+    views_growth = Column(Integer, nullable=False, default=0)
+    vip = Column(Boolean, default=False)
+    verified = Column(Boolean, default=False)
+    category_id = Column(ForeignKey('category.id'))
 
     category = relationship('Category')
 
@@ -83,8 +83,8 @@ class Session(Base):
 
     id = Column(Integer, primary_key=True)
     session_id = Column(String(255), nullable=False, unique=True)
-    expiration = Column(DateTime, nullable=False)
-    client_id = Column(ForeignKey('client.id'), index=True)
+    expiration = Column(DateTime)
+    client_id = Column(ForeignKey('client.id'))
 
     client = relationship('Client')
 
@@ -93,8 +93,8 @@ class Channeladmin(Base):
     __tablename__ = 'channeladmin'
 
     id = Column(Integer, primary_key=True)
-    channel_id = Column(ForeignKey('channel.id'), nullable=False, index=True)
-    admin_id = Column(ForeignKey('client.id'), nullable=False, index=True)
+    channel_id = Column(ForeignKey('channel.id'), nullable=False)
+    admin_id = Column(ForeignKey('client.id'), nullable=False)
 
     admin = relationship('Client')
     channel = relationship('Channel')
@@ -104,8 +104,8 @@ class Channeltag(Base):
     __tablename__ = 'channeltag'
 
     id = Column(Integer, primary_key=True)
-    channel_id = Column(ForeignKey('channel.id'), nullable=False, index=True)
-    tag_id = Column(ForeignKey('tag.id'), nullable=False, index=True)
+    channel_id = Column(ForeignKey('channel.id'), nullable=False)
+    tag_id = Column(ForeignKey('tag.id'), nullable=False)
 
     channel = relationship('Channel')
     tag = relationship('Tag')
