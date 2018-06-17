@@ -22,6 +22,8 @@ class ClientConnection(object):
             "FETCH_CHANNEL": API.fetch_channel,
             "VERIFY_CHANNEL": API.verify_channel,
             "UPDATE_CHANNEL": API.update_channel,
+            "PAYMENT_REQUEST": API.prepare_payment,
+            "PAYMENT_PROCESS": API.process_payment,
         }
 
     @staticmethod
