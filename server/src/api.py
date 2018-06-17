@@ -168,6 +168,12 @@ class API(object):
             cost_query,
         ).offset(message["offset"]).limit(message["count"])
 
+        # TODO: Refactor this in future(never)
+        channels = sorted(
+            channels,
+            key=lambda channel: (channel.vip, channel.members, channel.cost),
+            reverse=True
+        )
         categories = Channel.select(
             Channel.category,
             peewee.fn.COUNT(peewee.SQL("*"))).group_by(Channel.category)
@@ -337,3 +343,11 @@ class API(object):
             channel_admin.save()
 
         API._log(f"Updated channel {channel.username}")
+
+    @staticmethod
+    def prepare_payment():
+        raise NotImplemented("Stub for future payments module")
+
+    @staticmethod
+    def process_payment():
+        raise NotImplemented("Stub for future payments module")

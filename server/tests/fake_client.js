@@ -10,7 +10,25 @@ let log = (t, err) => {
 let url = 'ws://0.0.0.0:5000/client';
 let ws = new WebSocket(url);
 
-ws.onopen = () => log(`Connected to ${url}`);
+ws.onopen = () => {
+    log(`Connected to ${url}`);
+    ws.send(
+        JSON.stringify(
+            {
+                "action": "FETCH_CHANNELS",
+                "type": "CHANNELS",
+                "count": 20,
+                "offset": 0,
+                "title": "",
+                "category": "",
+                "members": [],
+                "cost": [],
+                "id": 62
+            }
+        )
+    );
+
+};
 ws.onerror = (e) => log(`Unable connect to ${url}`, true);
 ws.onclose = (e) => log('Closed');
 ws.onmessage = (e) => log(`Message: ${e.data}`);
