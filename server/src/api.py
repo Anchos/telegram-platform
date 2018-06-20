@@ -8,10 +8,9 @@ import peewee
 from aiohttp import web
 
 from .client import ClientConnection
-from .models import Session, Channel, ChannelAdmin, Client
+from .models import Session, Channel, ChannelAdmin, Client, Category
 from .pool import Pool
 from .telegram import Telegram
-from .validation import MessageValidator
 
 
 class API(object):
@@ -59,7 +58,6 @@ class API(object):
             if command == "/start":
                 response = {
                     "action": "AUTH",
-                    "type": "EVENT",
                     "user_id": update["from"]["id"],
                     "first_name": update["from"]["first_name"],
                     "username": update["from"].get("username", None),
@@ -96,18 +94,13 @@ class API(object):
 
     @staticmethod
     async def init(client: ClientConnection, message: dict):
-        error = MessageValidator.validate_init(message)
-        if error is not None:
-            await client.send_error(error)
-            return
-
         response = {
             "id": message["id"],
             "action": message["action"],
             "expires_in": 172800,
         }
 
-        if not Session.exists(message["session_id"]):
+        if "session_id" not in message or not Session.exists(message["session_id"]):
             API._log("New session initialisation")
 
             client.session = Session.create(
@@ -121,7 +114,8 @@ class API(object):
             client.session = Session.get(Session.session_id == message["session_id"])
 
             if client.session.client is not None:
-                response.update({
+                await client.send_response({
+                    "action": "AUTH",
                     "user_id": client.session.client.user_id,
                     "first_name": client.session.client.first_name,
                     "username": client.session.client.username,
@@ -136,37 +130,24 @@ class API(object):
 
     @staticmethod
     async def fetch_channels(client: ClientConnection, message: dict):
-        error = MessageValidator.validate_fetch_channels(message)
-        if error is not None:
-            await client.send_error(error)
-            return
+        query_args = []
 
-        if message["title"] is not "":
-            title_query = Channel.title ** f'%{message["title"]}%'
+        if "title" in message and message["title"] is not "":
+            query_args.append(Channel.title ** f'%{message["title"]}%')
+
+        if "category" in message:
+            query_args.append(Channel.category.name == message["category"])
+
+        if "members" in message:
+            query_args.append(Channel.members.between(message["members"][0], message["members"][1]))
+
+        if "cost" in message:
+            query_args.append(Channel.cost.between(message["cost"][0], message["cost"][1]))
+
+        if len(query_args) > 0:
+            channels = Channel.select().where(*query_args).offset(message["offset"]).limit(message["count"])
         else:
-            title_query = Channel.title ** "%"
-
-        if message["category"] is not "":
-            category_query = Channel.category == message["category"]
-        else:
-            category_query = (Channel.category.is_null(True)) | (Channel.category.is_null(False))
-
-        if len(message["members"]) >= 2:
-            members_query = Channel.members.between(message["members"][0], message["members"][1])
-        else:
-            members_query = Channel.members >= 0
-
-        if len(message["cost"]) >= 2:
-            cost_query = Channel.cost.between(message["cost"][0], message["cost"][1])
-        else:
-            cost_query = Channel.cost >= 0
-
-        channels = Channel.select().where(
-            title_query,
-            category_query,
-            members_query,
-            cost_query,
-        ).offset(message["offset"]).limit(message["count"])
+            channels = Channel.select().offset(message["offset"]).limit(message["count"])
 
         # TODO: Refactor this in future(never)
         channels = sorted(
@@ -174,23 +155,22 @@ class API(object):
             key=lambda channel: (channel.vip, channel.members, channel.cost),
             reverse=True
         )
-        categories = Channel.select(
-            Channel.category,
-            peewee.fn.COUNT(peewee.SQL("*"))).group_by(Channel.category)
 
-        total = Channel.select().where(
-            title_query,
-            category_query,
-            members_query,
-            cost_query,
-        ).count()
+        categories = Category.select(
+            Category.name,
+            peewee.fn.COUNT(peewee.SQL("*"))
+        ).group_by(Category.name)
 
+        if len(query_args) > 0:
+            total = Channel.select().where(*query_args).count()
+        else:
+            total = Channel.select().count()
         max_members = Channel.select(peewee.fn.MAX(Channel.members)).scalar()
         max_cost = Channel.select(peewee.fn.MAX(Channel.cost)).scalar()
 
         message["data"] = {
             "items": [x.serialize() for x in channels],
-            "categories": [{"category": x.category, "count": x.count} for x in categories],
+            "categories": [{"category": x.name, "count": x.count} for x in categories],
             "total": total,
             "max_members": max_members,
             "max_cost": max_cost,
@@ -200,11 +180,6 @@ class API(object):
 
     @staticmethod
     async def fetch_channel(client: ClientConnection, message: dict):
-        error = MessageValidator.validate_fetch_channel(message)
-        if error is not None:
-            await client.send_error(error)
-            return
-
         try:
             channel = Channel.get(Channel.username == message["username"])
         except Channel.DoesNotExist:
@@ -216,11 +191,6 @@ class API(object):
 
     @staticmethod
     async def verify_channel(client: ClientConnection, message: dict):
-        error = MessageValidator.validate_verify_channel(message)
-        if error is not None:
-            await client.send_error(error)
-            return
-
         if client.session.client is None:
             API._log("Unauthorised client tried to verify a channel")
 
@@ -242,11 +212,6 @@ class API(object):
 
     @staticmethod
     async def update_channel(client: ClientConnection, message: dict):
-        error = MessageValidator.validate_update_channel(message)
-        if error is not None:
-            await client.send_error(error)
-            return
-
         response = await Telegram.send_telegram_request(
             bot_token=Telegram.get_bot_token(),
             method="getChat",
@@ -343,6 +308,11 @@ class API(object):
             channel_admin.save()
 
         API._log(f"Updated channel {channel.username}")
+
+        await client.send_response({
+            "updated": True
+        })
+
 
     @staticmethod
     def prepare_payment():
