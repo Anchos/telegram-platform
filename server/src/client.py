@@ -24,6 +24,8 @@ class ClientConnection(object):
             "FETCH_CHANNEL": (API.fetch_channel, FetchChannelRequest),
             "VERIFY_CHANNEL": (API.verify_channel, VerifyChannelRequest),
             "UPDATE_CHANNEL": (API.update_channel, UpdateChannelRequest),
+            "LIKE_CHANNEL": (API.like_channel, LikeChannelRequest),
+            "DISLIKE_CHANNEL": (API.dislike_channel, DislikeChannelRequest),
             "PAYMENT_REQUEST": (API.prepare_payment, None),
             "PAYMENT_PROCESS": (API.process_payment, None),
         }
@@ -31,6 +33,12 @@ class ClientConnection(object):
     @staticmethod
     def log(message: str):
         logging.info(f"[CLIENT] {message}")
+
+    def is_initialised(self) -> bool:
+        return self.session is not None
+
+    def is_authorised(self) -> bool:
+        return self.session.client is not None
 
     async def send_response(self, response: dict):
         try:

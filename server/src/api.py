@@ -8,7 +8,7 @@ import peewee
 from aiohttp import web
 
 from .client import ClientConnection
-from .models import Session, Channel, ChannelAdmin, Client, Category
+from .models import Session, Channel, ChannelAdmin, Client, Category, ChannelSessionAction
 from .pool import Pool
 from .telegram import Telegram
 
@@ -144,6 +144,9 @@ class API(object):
         if "cost" in message:
             query_args.append(Channel.cost.between(message["cost"][0], message["cost"][1]))
 
+        if "likes" in message:
+            query_args.append(Channel.likes.between(message["likes"][0], message["likes"][1]))
+
         if len(query_args) > 0:
             channels = Channel.select().where(*query_args).offset(message["offset"]).limit(message["count"])
         else:
@@ -167,6 +170,7 @@ class API(object):
             total = Channel.select().count()
         max_members = Channel.select(peewee.fn.MAX(Channel.members)).scalar()
         max_cost = Channel.select(peewee.fn.MAX(Channel.cost)).scalar()
+        max_likes = Channel.select(peewee.fn.MAX(Channel.likes)).scalar()
 
         message["data"] = {
             "items": [x.serialize() for x in channels],
@@ -174,6 +178,7 @@ class API(object):
             "total": total,
             "max_members": max_members,
             "max_cost": max_cost,
+            "max_likes": max_likes,
         }
 
         await client.send_response(message)
@@ -191,7 +196,7 @@ class API(object):
 
     @staticmethod
     async def verify_channel(client: ClientConnection, message: dict):
-        if client.session.client is None:
+        if not client.is_authorised():
             API._log("Unauthorised client tried to verify a channel")
 
             await client.send_error("client must login before attempting to verify a channel")
@@ -313,6 +318,79 @@ class API(object):
             "updated": True
         })
 
+    @staticmethod
+    async def like_channel(client: ClientConnection, message: dict):
+        if not client.is_initialised():
+            API._log("Uninitialised client tried to like a channel")
+
+            await client.send_error("client must initialise before attempting to like a channel")
+            return
+
+        try:
+            channel = Channel.get(Channel.username == message["username"])
+        except Channel.DoesNotExist:
+            await client.send_error("channel does not exist")
+            return
+
+        channel_session_action, created = ChannelSessionAction.get_or_create(
+            channel=channel,
+            session=client.session,
+            defaults={
+                "like": True
+            }
+        )
+
+        if not created and channel_session_action.like:
+            await client.send_error("channel already liked")
+            return
+
+        if not channel_session_action.like:
+            channel_session_action.like = True
+            channel_session_action.save()
+
+        channel.likes += 1
+        channel.save()
+
+        API._log(f'Liked channel {message["username"]}')
+
+        await client.send_response({"liked": True})
+
+    @staticmethod
+    async def dislike_channel(client: ClientConnection, message: dict):
+        if not client.is_initialised():
+            API._log("Uninitialised client tried to dislike a channel")
+
+            await client.send_error("client must initialise before attempting to dislike a channel")
+            return
+
+        try:
+            channel = Channel.get(Channel.username == message["username"])
+        except Channel.DoesNotExist:
+            await client.send_error("channel does not exist")
+            return
+
+        channel_session_action, created = ChannelSessionAction.get_or_create(
+            channel=channel,
+            session=client.session,
+            defaults={
+                "like": False
+            }
+        )
+
+        if not created and not channel_session_action.like:
+            await client.send_error("channel already disliked")
+            return
+
+        if channel_session_action.like:
+            channel_session_action.like = False
+            channel_session_action.save()
+
+        channel.likes -= 1
+        channel.save()
+
+        API._log(f'Disliked channel {message["username"]}')
+
+        await client.send_response({"disliked": True})
 
     @staticmethod
     def prepare_payment():

@@ -6,8 +6,7 @@ let log = (t, err) =;
     e.style.color = err ? '#e55' : '#7c4';
     document.getElementById('console').appendChild(e)
 }
-let url = 'wss://ws.recursion.ga/client';
-// let url = 'ws://0.0.0.0:5000/client';
+let url = 'ws://0.0.0.0:5000/client';
 let ws = new WebSocket(url);
 
 ws.onopen = () =;

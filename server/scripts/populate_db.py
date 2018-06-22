@@ -1,4 +1,5 @@
 import asyncio
+import random
 
 import aiohttp
 
@@ -6,13 +7,14 @@ import aiohttp
 async def main():
     server_connection = await aiohttp.ClientSession().ws_connect(
         verify_ssl=False,
-        url="https://ws.recursion.ga/client",
-        # url="http://0.0.0.0:5000/client",
+        # url="https://ws.recursion.ga/client",
+        url="http://0.0.0.0:5000/client",
         autoping=True,
     )
 
     file = open("usernames.txt")
     channels = file.readlines()
+    random.shuffle(channels)
     file.close()
 
     await server_connection.send_json({
