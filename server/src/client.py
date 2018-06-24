@@ -24,8 +24,8 @@ class ClientConnection(object):
             "FETCH_CHANNEL": (API.fetch_channel, FetchChannelRequest),
             "VERIFY_CHANNEL": (API.verify_channel, VerifyChannelRequest),
             "UPDATE_CHANNEL": (API.update_channel, UpdateChannelRequest),
-            "PAYMENT_REQUEST": (API.prepare_payment, None),
-            "PAYMENT_PROCESS": (API.process_payment, None),
+            "PAYMENT_REQUEST_INTERKASSA": (API.prepare_payment, PaymentPrepareRequest),
+            "PAYMENT_PROCESS_INTERKASSA": (API.process_payment, PaymentProcessRequest),
         }
 
     @staticmethod
