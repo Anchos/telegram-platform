@@ -10,13 +10,7 @@ let log = (t, err) => {
 let url = 'ws://0.0.0.0:5000/client';
 let ws = new WebSocket(url);
 
-ws.onopen = () => {
-    log(`Connected to ${url}`);
-    ws.send(JSON.stringify({
-        action: "PAYMENT_REQUEST_INTERKASSA",
-        id: 62
-    }));
-};
+ws.onopen = () => log(`Connected to ${url}`);
 ws.onerror = (e) => log(`Unable connect to ${url}`, true);
 ws.onclose = (e) => log('Closed');
 ws.onmessage = (e) => log(`Message: ${e.data}`);
