@@ -2,6 +2,7 @@ import json
 
 import peewee
 from playhouse import shortcuts
+from playhouse.postgres_ext import BinaryJSONField
 
 file = open("config.json")
 config = json.loads(file.read())["DB"]
@@ -97,6 +98,15 @@ class Sticker(BaseModel):
     language = peewee.CharField(null=True)
 
 
+class Transactions(BaseModel):
+    client = peewee.ForeignKeyField(Client, null=False, backref='transactions')
+    amount = peewee.DecimalField(12, 2, null=False)
+    currency = peewee.CharField(null=False)
+    opened = peewee.DateTimeField()
+    closed = peewee.DateTimeField()
+    result = BinaryJSONField()
+
+
 def update_channels(channels: list):
     Channel.insert_many(channels).execute()
 
@@ -108,15 +118,15 @@ def update_bots(bots: list):
 def update_stickers(stickers: list):
     Sticker.insert_many(stickers).execute()
 
-
-db.create_tables([
-    Client,
-    Session,
-    Channel,
-    Tag,
-    Category,
-    ChannelAdmin,
-    ChannelTag,
-    Bot,
-    Sticker
-])
+#
+# db.create_tables([
+#     Client,
+#     Session,
+#     Channel,
+#     Tag,
+#     Category,
+#     ChannelAdmin,
+#     ChannelTag,
+#     Bot,
+#     Sticker
+# ])

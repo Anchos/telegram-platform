@@ -38,3 +38,11 @@ class VerifyChannelRequest(GenericRequest):
 
 class UpdateChannelRequest(GenericRequest):
     username = marshmallow.fields.String(required=True)
+
+
+class PaymentPrepareRequest(GenericRequest):
+    pass
+
+
+class PaymentProcessRequest(GenericRequest):
+    pass
