@@ -11,6 +11,7 @@ from .client import ClientConnection
 from .models import Session, Channel, ChannelAdmin, Client, Category, ChannelSessionAction
 from .pool import Pool
 from .telegram import Telegram
+from .payments import backends
 
 
 class API(object):
@@ -393,9 +394,21 @@ class API(object):
         await client.send_response({"disliked": True})
 
     @staticmethod
-    def prepare_payment():
-        raise NotImplemented("Stub for future payments module")
+    async def prepare_payment(client: ClientConnection, message: dict):
+        # Get backend from factory -> return redirection URL
+        backend = backends.get("inter_kassa")
+        backend.prepare_payment()
+
+        await client.send_error("Stub payment response")
 
     @staticmethod
-    def process_payment():
-        raise NotImplemented("Stub for future payments module")
+    async def process_payment(client: ClientConnection, message: dict):
+        """
+        This method is only needed for payments which use redirect payment flow
+
+        Get needed backend from factory and process payment
+        Grab all data from front-end callback from payment system
+        """
+        backend = backends.get("inter_kassa")
+        backend.process_payment()
+        await client.send_error("Stub payment process response")

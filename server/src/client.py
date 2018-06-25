@@ -28,6 +28,8 @@ class ClientConnection(object):
             "DISLIKE_CHANNEL": (API.dislike_channel, DislikeChannelRequest),
             "PAYMENT_REQUEST": (API.prepare_payment, None),
             "PAYMENT_PROCESS": (API.process_payment, None),
+            "PAYMENT_REQUEST_INTERKASSA": (API.prepare_payment, PaymentPrepareRequest),
+            "PAYMENT_PROCESS_INTERKASSA": (API.process_payment, PaymentProcessRequest),
         }
 
     @staticmethod

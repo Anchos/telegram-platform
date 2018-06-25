@@ -1,5 +1,6 @@
 # coding: utf-8
 from sqlalchemy import BigInteger, Boolean, Column, DateTime, ForeignKey, Integer, String, Text, DECIMAL
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 
@@ -122,3 +123,17 @@ class Channelsessionaction(Base):
 
     channel = relationship("Channel")
     session = relationship("Session")
+    
+    
+class Transaction(Base):
+    __tablename__ = 'transactions'
+    id = Column(Integer, primary_key=True)
+
+    client_id = Column(ForeignKey('client.id'), nullable=False)
+    client = relationship('Client')
+
+    amount = Column(DECIMAL(12, 2), nullable=False)
+    currency = Column(String(5), nullable=False)
+    opened = Column(DateTime)
+    closed = Column(DateTime)
+    result = JSONB()
