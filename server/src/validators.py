@@ -1,6 +1,6 @@
 import marshmallow
 
-from marshmallow.validate import Length
+from marshmallow.validate import Length, Range
 
 
 class GenericRequest(marshmallow.Schema):
@@ -14,18 +14,28 @@ class InitRequest(GenericRequest):
 
 class FetchChannelsRequest(GenericRequest):
     title = marshmallow.fields.String(required=False)
-    category = marshmallow.fields.String(required=False,
-                                         )
-    count = marshmallow.fields.Integer(required=False, missing=10)
+    category = marshmallow.fields.String(required=False)
+    count = marshmallow.fields.Integer(
+        required=False,
+        missing=10,
+        validate=Range(min=1, max=20)
+    )
     offset = marshmallow.fields.Integer(required=False, missing=0)
     members = marshmallow.fields.List(
         required=False,
         cls_or_instance=marshmallow.fields.Integer(),
-        validate=Length(equal=2))
+        validate=Length(equal=2)
+    )
     cost = marshmallow.fields.List(
         required=False,
         cls_or_instance=marshmallow.fields.Integer(),
-        validate=Length(equal=2))
+        validate=Length(equal=2)
+    )
+    likes = marshmallow.fields.List(
+        required=False,
+        cls_or_instance=marshmallow.fields.Integer(),
+        validate=Length(equal=2)
+    )
 
 
 class FetchChannelRequest(GenericRequest):
@@ -40,6 +50,14 @@ class UpdateChannelRequest(GenericRequest):
     username = marshmallow.fields.String(required=True)
 
 
+class LikeChannelRequest(GenericRequest):
+    username = marshmallow.fields.String(required=True)
+
+
+class DislikeChannelRequest(GenericRequest):
+    username = marshmallow.fields.String(required=True)
+
+    
 class PaymentPrepareRequest(GenericRequest):
     pass
 

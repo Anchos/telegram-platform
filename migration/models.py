@@ -33,7 +33,7 @@ class Client(Base):
     user_id = Column(Integer, nullable=False, unique=True)
     first_name = Column(String(255), nullable=True)
     username = Column(String(255), nullable=True)
-    balance = Column(DECIMAL(12, 2), nullable=True)
+    balance = Column(DECIMAL(12, 2), nullable=True, default=0.00)
     language_code = Column(String(255), nullable=True)
     photo = Column(String(255), nullable=True)
 
@@ -75,6 +75,7 @@ class Channel(Base):
     vip = Column(Boolean, default=False)
     verified = Column(Boolean, default=False)
     category_id = Column(ForeignKey('category.id'))
+    likes = Column(Integer, nullable=False, default=0)
 
     category = relationship('Category')
 
@@ -112,6 +113,18 @@ class Channeltag(Base):
     tag = relationship('Tag')
 
 
+class Channelsessionaction(Base):
+    __tablename__ = 'channelsessionaction'
+
+    id = Column(Integer, primary_key=True)
+    channel_id = Column(ForeignKey('channel.id'), nullable=False)
+    session_id = Column(ForeignKey("session.id"), nullable=False)
+    like = Column(Boolean, nullable=False)
+
+    channel = relationship("Channel")
+    session = relationship("Session")
+    
+    
 class Transaction(Base):
     __tablename__ = 'transactions'
     id = Column(Integer, primary_key=True)

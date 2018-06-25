@@ -61,14 +61,17 @@ class Channel(BaseModel):
     photo = peewee.CharField(null=True)
     description = peewee.TextField(null=True)
     cost = peewee.IntegerField(default=0)
-    language = peewee.CharField(null=True)
+    likes = peewee.IntegerField(default=0)
     members = peewee.IntegerField(default=0)
+    verified = peewee.BooleanField(default=False)
+    category = peewee.ForeignKeyField(Category, null=True)
+
+    # Attributes bellow are unconfirmed and probably useless
+    language = peewee.CharField(null=True)
     members_growth = peewee.IntegerField(default=0)
     views = peewee.IntegerField(default=0)
     views_growth = peewee.IntegerField(default=0)
     vip = peewee.BooleanField(default=False)
-    verified = peewee.BooleanField(default=False)
-    category = peewee.ForeignKeyField(Category, null=True)
 
 
 class ChannelTag(BaseModel):
@@ -79,6 +82,12 @@ class ChannelTag(BaseModel):
 class ChannelAdmin(BaseModel):
     channel = peewee.ForeignKeyField(Channel)
     admin = peewee.ForeignKeyField(Client)
+
+
+class ChannelSessionAction(BaseModel):
+    channel = peewee.ForeignKeyField(Channel)
+    session = peewee.ForeignKeyField(Session)
+    like = peewee.BooleanField(null=False)
 
 
 class Bot(BaseModel):

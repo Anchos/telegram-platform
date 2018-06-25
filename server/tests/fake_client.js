@@ -1,4 +1,3 @@
-
 let log = (t, err) => {
     let e = document.createElement('div');
     e.innerText = t;

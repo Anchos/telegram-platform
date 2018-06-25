@@ -1,4 +1,5 @@
 import asyncio
+import random
 
 import aiohttp
 
@@ -13,6 +14,7 @@ async def main():
 
     file = open("usernames.txt")
     channels = file.readlines()
+    random.shuffle(channels)
     file.close()
 
     await server_connection.send_json({
