@@ -1,141 +1,139 @@
-import json
+# coding: utf-8
+from sqlalchemy import BigInteger, Boolean, Column, DateTime, ForeignKey, Integer, String, Text, DECIMAL
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship
 
-import peewee
-from playhouse import shortcuts
-from playhouse.postgres_ext import BinaryJSONField
-
-file = open("config.json")
-config = json.loads(file.read())["DB"]
-file.close()
-
-db = peewee.PostgresqlDatabase(
-    database=config["database"],
-    user=config["user"],
-    password=config["password"],
-    host=config["host"],
-    port=config["port"]
-)
-
-db.connect()
+Base = declarative_base()
+metadata = Base.metadata
 
 
-class BaseModel(peewee.Model):
-    def serialize(self) -> dict:
-        return shortcuts.model_to_dict(self)
+class Bot(Base):
+    __tablename__ = 'bot'
 
-    class Meta:
-        database = db
-
-
-class Client(BaseModel):
-    user_id = peewee.IntegerField(unique=True)
-    first_name = peewee.CharField(null=True)
-    username = peewee.CharField(null=True)
-    balance = peewee.DecimalField(12, 2, default=0.00)
-    language_code = peewee.CharField(null=True)
-    photo = peewee.CharField(null=True)
+    id = Column(Integer, primary_key=True)
+    title = Column(String(255), default="")
+    username = Column(String(255), default=True)
+    photo = Column(String(255), nullable=True)
+    category = Column(String(255), nullable=True)
+    description = Column(Text, nullable=True)
 
 
-class Session(BaseModel):
-    session_id = peewee.CharField(unique=True)
-    expiration = peewee.DateTimeField()
-    client = peewee.ForeignKeyField(Client, null=True)
+class Category(Base):
+    __tablename__ = 'category'
 
-    @staticmethod
-    def exists(session_id: str) -> bool:
-        return Session.select().where(Session.session_id == session_id).exists()
+    id = Column(Integer, primary_key=True)
+    name = Column(String(255), default="")
 
 
-class Tag(BaseModel):
-    name = peewee.CharField(unique=True)
+class Client(Base):
+    __tablename__ = 'client'
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, nullable=False, unique=True)
+    first_name = Column(String(255), nullable=True)
+    username = Column(String(255), nullable=True)
+    balance = Column(DECIMAL(12, 2), nullable=True, default=0.00)
+    language_code = Column(String(255), nullable=True)
+    photo = Column(String(255), nullable=True)
 
 
-class Category(BaseModel):
-    name = peewee.CharField(default="")
+class Sticker(Base):
+    __tablename__ = 'sticker'
+
+    id = Column(Integer, primary_key=True)
+    title = Column(String(255), default="")
+    username = Column(String(255), default="")
+    photo = Column(String(255), nullable=True)
+    category = Column(String(255), nullable=True)
+    installs = Column(Integer, default=0)
+    language = Column(String(255), nullable=True)
 
 
-class Channel(BaseModel):
-    telegram_id = peewee.BigIntegerField(default=0, unique=True)
-    title = peewee.CharField()
-    username = peewee.CharField(null=True)
-    photo = peewee.CharField(null=True)
-    description = peewee.TextField(null=True)
-    cost = peewee.IntegerField(default=0)
-    likes = peewee.IntegerField(default=0)
-    members = peewee.IntegerField(default=0)
-    verified = peewee.BooleanField(default=False)
-    category = peewee.ForeignKeyField(Category, null=True)
+class Tag(Base):
+    __tablename__ = 'tag'
 
-    # Attributes bellow are unconfirmed and probably useless
-    language = peewee.CharField(null=True)
-    members_growth = peewee.IntegerField(default=0)
-    views = peewee.IntegerField(default=0)
-    views_growth = peewee.IntegerField(default=0)
-    vip = peewee.BooleanField(default=False)
+    id = Column(Integer, primary_key=True)
+    name = Column(String(255), nullable=False, unique=True)
 
 
-class ChannelTag(BaseModel):
-    channel = peewee.ForeignKeyField(Channel)
-    tag = peewee.ForeignKeyField(Tag)
+class Channel(Base):
+    __tablename__ = 'channel'
+
+    id = Column(Integer, primary_key=True)
+    telegram_id = Column(BigInteger, nullable=False, unique=True)
+    title = Column(String(255), nullable=False)
+    username = Column(String(255), nullable=True)
+    photo = Column(String(255), nullable=True)
+    description = Column(Text, nullable=True)
+    cost = Column(Integer, nullable=False, default=0)
+    language = Column(String(255), nullable=True)
+    members = Column(Integer, nullable=False, default=0)
+    members_growth = Column(Integer, nullable=False, default=0)
+    views = Column(Integer, nullable=False, default=0)
+    views_growth = Column(Integer, nullable=False, default=0)
+    vip = Column(Boolean, default=False)
+    verified = Column(Boolean, default=False)
+    category_id = Column(ForeignKey('category.id'))
+    likes = Column(Integer, nullable=False, default=0)
+
+    category = relationship('Category')
 
 
-class ChannelAdmin(BaseModel):
-    channel = peewee.ForeignKeyField(Channel)
-    admin = peewee.ForeignKeyField(Client)
+class Session(Base):
+    __tablename__ = 'session'
+
+    id = Column(Integer, primary_key=True)
+    session_id = Column(String(255), nullable=False, unique=True)
+    expiration = Column(DateTime)
+    client_id = Column(ForeignKey('client.id'))
+
+    client = relationship('Client')
 
 
-class ChannelSessionAction(BaseModel):
-    channel = peewee.ForeignKeyField(Channel)
-    session = peewee.ForeignKeyField(Session)
-    like = peewee.BooleanField(null=False)
+class Channeladmin(Base):
+    __tablename__ = 'channeladmin'
+
+    id = Column(Integer, primary_key=True)
+    channel_id = Column(ForeignKey('channel.id'), nullable=False)
+    admin_id = Column(ForeignKey('client.id'), nullable=False)
+
+    admin = relationship('Client')
+    channel = relationship('Channel')
 
 
-class Bot(BaseModel):
-    title = peewee.CharField(default="")
-    username = peewee.CharField(default="")
-    photo = peewee.CharField(null=True)
-    category = peewee.CharField(null=True)
-    description = peewee.TextField(null=True)
+class Channeltag(Base):
+    __tablename__ = 'channeltag'
+
+    id = Column(Integer, primary_key=True)
+    channel_id = Column(ForeignKey('channel.id'), nullable=False)
+    tag_id = Column(ForeignKey('tag.id'), nullable=False)
+
+    channel = relationship('Channel')
+    tag = relationship('Tag')
 
 
-class Sticker(BaseModel):
-    title = peewee.CharField(default="")
-    username = peewee.CharField(default="")
-    photo = peewee.CharField(null=True)
-    category = peewee.CharField(null=True)
-    installs = peewee.IntegerField(default=0)
-    language = peewee.CharField(null=True)
+class Channelsessionaction(Base):
+    __tablename__ = 'channelsessionaction'
 
+    id = Column(Integer, primary_key=True)
+    channel_id = Column(ForeignKey('channel.id'), nullable=False)
+    session_id = Column(ForeignKey("session.id"), nullable=False)
+    like = Column(Boolean, nullable=False)
 
-class Transactions(BaseModel):
-    client = peewee.ForeignKeyField(Client, null=False, backref='transactions')
-    amount = peewee.DecimalField(12, 2, null=False)
-    currency = peewee.CharField(null=False)
-    opened = peewee.DateTimeField()
-    closed = peewee.DateTimeField()
-    result = BinaryJSONField()
+    channel = relationship("Channel")
+    session = relationship("Session")
+    
+    
+class Transaction(Base):
+    __tablename__ = 'transactions'
+    id = Column(Integer, primary_key=True)
 
+    client_id = Column(ForeignKey('client.id'), nullable=False)
+    client = relationship('Client')
 
-def update_channels(channels: list):
-    Channel.insert_many(channels).execute()
-
-
-def update_bots(bots: list):
-    Bot.insert_many(bots).execute()
-
-
-def update_stickers(stickers: list):
-    Sticker.insert_many(stickers).execute()
-
-#
-# db.create_tables([
-#     Client,
-#     Session,
-#     Channel,
-#     Tag,
-#     Category,
-#     ChannelAdmin,
-#     ChannelTag,
-#     Bot,
-#     Sticker
-# ])
+    amount = Column(DECIMAL(12, 2), nullable=False)
+    currency = Column(String(5), nullable=False)
+    opened = Column(DateTime)
+    closed = Column(DateTime)
+    result = JSONB()
