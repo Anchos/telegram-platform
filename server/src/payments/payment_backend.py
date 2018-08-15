@@ -1,8 +1,8 @@
 import logging
 from abc import ABC, abstractmethod
 
-from src.payments.payment_gateway import InterKassaGateway
-from src.models import Transactions
+from .payment_gateway import InterKassaGateway
+from ..models import Transaction
 from . import config
 
 
