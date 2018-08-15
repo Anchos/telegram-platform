@@ -4,7 +4,6 @@ import logging
 import random
 import uuid
 
-import peewee
 from aiohttp import web
 
 from .client import ClientConnection

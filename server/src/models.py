@@ -91,7 +91,7 @@ class Session(Base):
     client = relationship('Client')
 
 
-class Channeladmin(Base):
+class ChannelAdmin(Base):
     __tablename__ = 'channeladmin'
 
     id = Column(Integer, primary_key=True)
@@ -102,7 +102,7 @@ class Channeladmin(Base):
     channel = relationship('Channel')
 
 
-class Channeltag(Base):
+class ChannelTag(Base):
     __tablename__ = 'channeltag'
 
     id = Column(Integer, primary_key=True)
@@ -113,7 +113,7 @@ class Channeltag(Base):
     tag = relationship('Tag')
 
 
-class Channelsessionaction(Base):
+class ChannelSessionAction(Base):
     __tablename__ = 'channelsessionaction'
 
     id = Column(Integer, primary_key=True)
