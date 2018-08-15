@@ -2,5 +2,6 @@ aiohttp==3.1.2
 alembic==0.9.9
 asyncpgsa
 marshmallow==3.0.0b11
+psycopg2-binary==2.7.5
 sqlacodegen==2.0.0
 SQLAlchemy==1.2.7
