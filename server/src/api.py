@@ -5,6 +5,7 @@ import random
 import uuid
 
 from aiohttp import web
+from asyncpgsa import pg
 
 from .client import ClientConnection
 from .models import Session, Channel, ChannelAdmin, Client, Category, ChannelSessionAction
