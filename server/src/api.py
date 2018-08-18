@@ -1,17 +1,18 @@
-import datetime
+from datetime import datetime, timedelta
 import json
 import logging
 import random
-import uuid
+from uuid import uuid4
 
 from aiohttp import web
-from asyncpgsa import pg
 
 from .client import ClientConnection
 from .models import Session, Channel, ChannelAdmin, Client, Category, ChannelSessionAction
 from .pool import Pool
 from .telegram import Telegram
 from .payments import backends
+
+# TODO: make proper message dispatcher pattern implementation
 
 
 class API(object):
@@ -29,6 +30,7 @@ class API(object):
 
     @staticmethod
     def _log(message: str):
+        # TODO: Logs should include client's session ID and IP
         logging.info(f"[API] {message}")
 
     def get_bot_token(self) -> str:
@@ -95,38 +97,42 @@ class API(object):
 
     @staticmethod
     async def init(client: ClientConnection, message: dict):
+        # TODO: Need to implement some throttling on init method to prevent brute-force attack
         response = {
             "id": message["id"],
             "action": message["action"],
             "expires_in": 172800,
         }
 
-        if "session_id" not in message or not Session.exists(message["session_id"]):
-            API._log("New session initialisation")
-
-            client.session = Session.create(
-                session_id=str(uuid.uuid4()),
-                expiration=datetime.datetime.now() + datetime.timedelta(days=2)
-            )
-
-        else:
-            API._log("Existing session initialisation")
-
-            client.session = Session.get(Session.session_id == message["session_id"])
-
-            if client.session.client is not None:
-                await client.send_response({
+        session = await Session.async_get(message['session_id']) if 'session_id' in message else None
+        if session is not None:
+            # Got session from DB, sent it's info to client
+            API._log("Existing session initialization")
+            client.session = session
+            user_id = client.session['client_user_id'] if 'client_user_id' in client.session else None
+            if user_id is not None:
+                auth_resp = {
                     "action": "AUTH",
-                    "user_id": client.session.client.user_id,
-                    "first_name": client.session.client.first_name,
-                    "username": client.session.client.username,
-                    "language_code": client.session.client.language_code,
-                    "photo": client.session.client.photo,
-                })
+                    "user_id": client.session['client_user_id'],
+                    "first_name": client.session['client_first_name'],
+                    "username": client.session['client_username'],
+                    "language_code": client.session['client_language_code'],
+                    "photo": client.session['client_photo'],
+                }
+                API._log('=> %s' % auth_resp)
+                await client.send_response(auth_resp)
+        else:
+            # Session is not found, need to generate one
+            API._log("New session init")
+            # TODO: there is a possibility that UUID will match with existing one, need to try to generate the new one
+            client.session = {'session_id': str(uuid4()),
+                              'session_expiration': datetime.now() + timedelta(days=2)}
+            await Session.async_insert(**client.session)
 
-        response["session_id"] = client.session.session_id
+        response["session_id"] = client.session['session_id']
         response["connection_id"] = client.connection_id
 
+        API._log('=> %s' % response)
         await client.send_response(response)
 
     @staticmethod

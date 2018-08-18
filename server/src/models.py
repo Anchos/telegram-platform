@@ -1,10 +1,20 @@
 # coding: utf-8
+from asyncpgsa import pg
 from sqlalchemy import BigInteger, Boolean, Column, DateTime, ForeignKey, Integer, String, Text, DECIMAL
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import select, outerjoin
 
-Base = declarative_base()
+
+class AsyncManager(object):
+    @classmethod
+    async def async_insert(cls, **values):
+        ins = cls.__table__.insert().values(**values)
+        await pg.fetchrow(ins)
+
+
+Base = declarative_base(cls=AsyncManager)
 metadata = Base.metadata
 
 
@@ -83,12 +93,16 @@ class Channel(Base):
 class Session(Base):
     __tablename__ = 'session'
 
-    id = Column(Integer, primary_key=True)
-    session_id = Column(String(255), nullable=False, unique=True)
+    id = Column(String(255), primary_key=True)
     expiration = Column(DateTime)
     client_id = Column(ForeignKey('client.id'))
-
     client = relationship('Client')
+
+    @classmethod
+    async def async_get(cls, session_id):
+        q = select([cls.__table__, Client.__table__], from_obj=[outerjoin(cls.__table__, Client.__table__)],
+                   use_labels=True).where(cls.__table__.c.id == session_id)
+        return await pg.fetchrow(q)
 
 
 class ChannelAdmin(Base):
