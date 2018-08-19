@@ -104,6 +104,7 @@ class API(object):
             "expires_in": 172800,
         }
 
+        # TODO: check expiration or implement deletion
         session = await Session.async_get(message['session_id']) if 'session_id' in message else None
         if session is not None:
             # Got session from DB, sent it's info to client
@@ -111,16 +112,14 @@ class API(object):
             client.session = session
             user_id = client.session['client_user_id'] if 'client_user_id' in client.session else None
             if user_id is not None:
-                auth_resp = {
+                await client.send_response({
                     "action": "AUTH",
                     "user_id": client.session['client_user_id'],
                     "first_name": client.session['client_first_name'],
                     "username": client.session['client_username'],
                     "language_code": client.session['client_language_code'],
                     "photo": client.session['client_photo'],
-                }
-                API._log('=> %s' % auth_resp)
-                await client.send_response(auth_resp)
+                })
         else:
             # Session is not found, need to generate one
             API._log("New session init")
@@ -132,7 +131,6 @@ class API(object):
         response["session_id"] = client.session['session_id']
         response["connection_id"] = client.connection_id
 
-        API._log('=> %s' % response)
         await client.send_response(response)
 
     @staticmethod

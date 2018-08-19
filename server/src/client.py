@@ -44,6 +44,7 @@ class ClientConnection(object):
 
     async def send_response(self, response: dict):
         try:
+            self.log('=> %s' % response)
             await self.connection.send_json(response)
         except RuntimeError:
             self.log("Connection is not started or closing")
@@ -68,7 +69,7 @@ class ClientConnection(object):
     async def process_connection(self):
         async for message in self.connection:
             if message.type == WSMsgType.TEXT:
-                self.log(f"Client sent: {message.data}")
+                self.log(f"<= {message.data}")
 
                 try:
                     message = json.loads(message.data)

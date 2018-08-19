@@ -4,13 +4,13 @@ from sqlalchemy import BigInteger, Boolean, Column, DateTime, ForeignKey, Intege
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
-from sqlalchemy.sql import select, outerjoin
+from sqlalchemy.sql import select, outerjoin, insert
 
 
 class AsyncManager(object):
     @classmethod
     async def async_insert(cls, **values):
-        ins = cls.__table__.insert().values(**values)
+        ins = insert(cls).values(**values)
         await pg.fetchrow(ins)
 
 
@@ -39,6 +39,7 @@ class Category(Base):
 class Client(Base):
     __tablename__ = 'client'
 
+    # TODO: remove redundant client ID, User_ID is enough here
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, nullable=False, unique=True)
     first_name = Column(String(255), nullable=True)
@@ -63,6 +64,7 @@ class Sticker(Base):
 class Tag(Base):
     __tablename__ = 'tag'
 
+    # TODO: remove redundant tag ID, name is enough here
     id = Column(Integer, primary_key=True)
     name = Column(String(255), nullable=False, unique=True)
 
@@ -70,6 +72,7 @@ class Tag(Base):
 class Channel(Base):
     __tablename__ = 'channel'
 
+    # TODO: remove redundant channel ID, telegram ID is enough here
     id = Column(Integer, primary_key=True)
     telegram_id = Column(BigInteger, nullable=False, unique=True)
     title = Column(String(255), nullable=False)
@@ -100,8 +103,7 @@ class Session(Base):
 
     @classmethod
     async def async_get(cls, session_id):
-        q = select([cls.__table__, Client.__table__], from_obj=[outerjoin(cls.__table__, Client.__table__)],
-                   use_labels=True).where(cls.__table__.c.id == session_id)
+        q = select([cls, Client], from_obj=[outerjoin(cls, Client)], use_labels=True).where(cls.id == session_id)
         return await pg.fetchrow(q)
 
 
