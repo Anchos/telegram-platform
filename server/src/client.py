@@ -34,13 +34,14 @@ class ClientConnection(object):
 
     @staticmethod
     def log(message: str):
+        # TODO: Logs should include client's session ID and IP
         logging.info(f"[CLIENT] {message}")
 
     def is_initialised(self) -> bool:
         return self.session is not None
 
     def is_authorised(self) -> bool:
-        return self.session.client is not None
+        return self.session['client_id'] is not None
 
     async def send_response(self, response: dict):
         try:

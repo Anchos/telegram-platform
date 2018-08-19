@@ -1,20 +1,10 @@
 # coding: utf-8
-from asyncpgsa import pg
 from sqlalchemy import BigInteger, Boolean, Column, DateTime, ForeignKey, Integer, String, Text, DECIMAL
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
-from sqlalchemy.sql import select, outerjoin, insert
 
-
-class AsyncManager(object):
-    @classmethod
-    async def async_insert(cls, **values):
-        ins = insert(cls).values(**values)
-        await pg.fetchrow(ins)
-
-
-Base = declarative_base(cls=AsyncManager)
+Base = declarative_base()
 metadata = Base.metadata
 
 
@@ -32,6 +22,7 @@ class Bot(Base):
 class Category(Base):
     __tablename__ = 'category'
 
+    # TODO: remove redundant category ID, name is enough here
     id = Column(Integer, primary_key=True)
     name = Column(String(255), default="")
 
@@ -44,7 +35,7 @@ class Client(Base):
     user_id = Column(Integer, nullable=False, unique=True)
     first_name = Column(String(255), nullable=True)
     username = Column(String(255), nullable=True)
-    balance = Column(DECIMAL(12, 2), nullable=True, default=0.00)
+    balance = Column(DECIMAL(12, 2), nullable=True, default=0.00)  # TODO: obsolete
     language_code = Column(String(255), nullable=True)
     photo = Column(String(255), nullable=True)
 
@@ -96,15 +87,12 @@ class Channel(Base):
 class Session(Base):
     __tablename__ = 'session'
 
-    id = Column(String(255), primary_key=True)
+    # TODO: remove redundant session ID, session_id is enough here
+    id = Column(Integer, primary_key=True)
+    session_id = Column(String(255), nullable=False, unique=True)
     expiration = Column(DateTime)
     client_id = Column(ForeignKey('client.id'))
     client = relationship('Client')
-
-    @classmethod
-    async def async_get(cls, session_id):
-        q = select([cls, Client], from_obj=[outerjoin(cls, Client)], use_labels=True).where(cls.id == session_id)
-        return await pg.fetchrow(q)
 
 
 class ChannelAdmin(Base):

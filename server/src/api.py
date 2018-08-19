@@ -5,14 +5,21 @@ import random
 from uuid import uuid4
 
 from aiohttp import web
+from asyncpgsa import pg
+from sqlalchemy.sql import select, outerjoin, insert, desc, update, and_
+from sqlalchemy.sql.functions import max
 
 from .client import ClientConnection
-from .models import Session, Channel, ChannelAdmin, Client, Category, ChannelSessionAction
+from .models import Session, Channel, ChannelAdmin, Client, ChannelSessionAction
 from .pool import Pool
 from .telegram import Telegram
 from .payments import backends
 
 # TODO: make proper message dispatcher pattern implementation
+# TODO: input values validity and sanity check
+# TODO: Error codes must be enumerated to be translated on every language on the frontend
+# TODO: Add endpoint/message for Category model
+# TODO: Add DB indexes on fields using on where or on order_by
 
 
 class API(object):
@@ -30,7 +37,6 @@ class API(object):
 
     @staticmethod
     def _log(message: str):
-        # TODO: Logs should include client's session ID and IP
         logging.info(f"[API] {message}")
 
     def get_bot_token(self) -> str:
@@ -71,22 +77,29 @@ class API(object):
                     ),
                 }
 
-                client, created = Client.get_or_create(
-                    user_id=update["from"]["id"],
-                    defaults={
-                        "first_name": response["first_name"],
-                        "username": response["username"],
-                        "language_code": response["language_code"],
-                        "photo": response["photo"],
-                    }
-                )
-
-                if created:
+                # TODO: not sure if is that correct, I think update_or_create should be here
+                sel_q = select([Client]).where(Client.user_id == update['from']['id'])
+                client = await pg.fetchrow(sel_q)
+                # TODO: ensure that None is returned when no result found
+                if client is None:
+                    ins_q = insert(Client).values(user_id=update["from"]["id"],
+                                                  first_name=response["first_name"],
+                                                  username=response["username"],
+                                                  language_code=response["language_code"],
+                                                  photo=response["photo"]).returnung(Client.id)
+                    client_id = await pg.fetchval(ins_q)
                     self._log("New telegram client created")
                 else:
+                    client_id = client['id']
                     self._log("Existing telegram client")
 
-                self.pool.clients[text[1]].session.client = client
+                client_dict = {'client_id': client_id,
+                               'client_user_id': response['user_id'],
+                               'client_first_name': response['first_name'],
+                               'client_username': response['username'],
+                               'client_language_code': response['language_code'],
+                               'client_photo': response['photo']}
+                self.pool.clients[text[1]].session.update(client_dict)
 
                 await self.pool.clients[text[1]].send_response(response)
 
@@ -105,11 +118,16 @@ class API(object):
         }
 
         # TODO: check expiration or implement deletion
-        session = await Session.async_get(message['session_id']) if 'session_id' in message else None
+        session = None
+        if 'session_id' in message:
+            sel_q = select(['*'], from_obj=[outerjoin(Session, Client)], use_labels=True).where(
+                Session.session_id == message['session_id'])
+            session = await pg.fetchrow(sel_q)
+            # TODO: ensure that None is returned when no result found
         if session is not None:
             # Got session from DB, sent it's info to client
             API._log("Existing session initialization")
-            client.session = session
+            client.session = dict(session.items())
             user_id = client.session['client_user_id'] if 'client_user_id' in client.session else None
             if user_id is not None:
                 await client.send_response({
@@ -126,15 +144,20 @@ class API(object):
             # TODO: there is a possibility that UUID will match with existing one, need to try to generate the new one
             client.session = {'session_id': str(uuid4()),
                               'session_expiration': datetime.now() + timedelta(days=2)}
-            await Session.async_insert(**client.session)
+            ins_q = insert(Session).values(**client.session)
+            await pg.fetchrow(ins_q)
 
-        response["session_id"] = client.session['session_id']
+        response["session_id"] = client.session['session_session_id']
         response["connection_id"] = client.connection_id
 
         await client.send_response(response)
 
     @staticmethod
     async def fetch_channels(client: ClientConnection, message: dict):
+        # TODO: pagination, need to limit response size on the server side
+        # TODO: Respect Client's language
+        sel_q = select([Channel])
+
         query_args = []
 
         if "title" in message and message["title"] is not "":
@@ -153,49 +176,42 @@ class API(object):
             query_args.append(Channel.likes.between(message["likes"][0], message["likes"][1]))
 
         if len(query_args) > 0:
-            channels = Channel.select().where(*query_args).offset(message["offset"]).limit(message["count"])
-        else:
-            channels = Channel.select().offset(message["offset"]).limit(message["count"])
+            sel_q = sel_q.where(*query_args)
 
-        # TODO: Refactor this in future(never)
-        channels = sorted(
-            channels,
-            key=lambda channel: (channel.vip, channel.members, channel.cost),
-            reverse=True
-        )
+        total = await pg.fetchval(sel_q.count())
 
-        categories = Category.select(
-            Category.name,
-            peewee.fn.COUNT(peewee.SQL("*"))
-        ).group_by(Category.name)
+        # Apply ordering
+        sel_q = sel_q.order_by([desc(Channel.vip), desc(Channel.members), desc(Channel.cost)])
 
-        if len(query_args) > 0:
-            total = Channel.select().where(*query_args).count()
-        else:
-            total = Channel.select().count()
-        max_members = Channel.select(peewee.fn.MAX(Channel.members)).scalar()
-        max_cost = Channel.select(peewee.fn.MAX(Channel.cost)).scalar()
-        max_likes = Channel.select(peewee.fn.MAX(Channel.likes)).scalar()
+        # Apply Limit/Offset
+        sel_q = sel_q.offset(message['offset']).limit(message['count'])
+
+        channels = await pg.fetch(sel_q)
+
+        stat_q = select([max(Channel.members), max(Channel.cost), max(Channel.likes)])
+        stats = await pg.fetchrow(stat_q)
+        print(list(stats.keys()))
 
         message["data"] = {
-            "items": [x.serialize() for x in channels],
-            "categories": [{"category": x.name, "count": x.count} for x in categories],
+            "items": [dict(x.items()) for x in channels],
             "total": total,
-            "max_members": max_members,
-            "max_cost": max_cost,
-            "max_likes": max_likes,
+            "max_members": stats['max_members'],
+            "max_cost": stats['max_cost'],
+            "max_likes": stats['max_likes'],
         }
 
         await client.send_response(message)
 
     @staticmethod
     async def fetch_channel(client: ClientConnection, message: dict):
-        try:
-            channel = Channel.get(Channel.username == message["username"])
-        except Channel.DoesNotExist:
-            channel = Channel.select().order_by(peewee.fn.Random()).limit(1)
+        sel_q = select([Channel]).where(Channel.username == message['username'])
+        channel = await pg.fetchrow(sel_q)
+        # TODO: ensure that None is returned when no result found
+        if channel is None:
+            await client.send_error('No such channel')
+            return
 
-        message["data"] = channel.serialize()
+        message['data'] = dict(channel.items())
 
         await client.send_response(message)
 
@@ -207,8 +223,10 @@ class API(object):
             await client.send_error("client must login before attempting to verify a channel")
             return
 
-        channel_admin = ChannelAdmin.get_or_none(ChannelAdmin.admin == client.session.client)
-
+        # TODO: User can be an admin for several channels, message['username'] should be taken into account
+        sel_q = select([ChannelAdmin]).where(ChannelAdmin.admin_id == client.session['client_id'])
+        channel_admin = await pg.fetchrow(sel_q)
+        # TODO: ensure that None is returned when no result found
         if channel_admin is not None:
             channel_admin.channel.verified = True
             channel_admin.channel.save()
@@ -285,37 +303,41 @@ class API(object):
 
         API._log(f'Fetched channel @{chat["username"]}')
 
-        try:
-            channel = Channel.get(Channel.telegram_id == chat["id"])
-
-            API._log("Channel exists")
-
-        except Channel.DoesNotExist:
+        sel_q = select([Channel]).where(Channel.telegram_id == chat["id"])
+        channel = await pg.fetchrow(sel_q)
+        # TODO: ensure that None is returned when no result found
+        channel_dict = {'telegram_id': chat["id"],
+                        'username': "@" + chat["username"],
+                        'title': chat["title"],
+                        'photo': chat.get("photo", None),
+                        'description': chat.get("description", None),
+                        'members': chat["members"]}
+        if channel is None:
             API._log("Creating new channel")
-
-            channel = Channel()
-
-        channel.telegram_id = chat["id"]
-        channel.username = "@" + chat["username"]
-        channel.title = chat["title"]
-        channel.photo = chat.get("photo", None)
-        channel.description = chat.get("description", None)
-        channel.members = chat["members"]
-
-        channel.save()
+            ins_q = insert(Channel).values(**channel_dict).returning(Channel.id)
+            channel_id = await pg.fetchval(ins_q)
+        else:
+            API._log("Channel exists")
+            channel_id = channel['id']
+            upd_q = update(Channel).where(Channel.id == channel_id).values(**channel_dict)
+            await pg.fetchrow(upd_q)
 
         for admin in admins:
-            channel_admin = ChannelAdmin()
-            channel_admin.channel = channel
-            channel_admin.admin, _ = Client.get_or_create(
-                user_id=admin["id"],
-                defaults={
-                    "first_name": admin["first_name"],
-                    "username": admin.get("username", None),
-                    "photo": admin.get("photo", None),
-                }
-            )
-            channel_admin.save()
+            sel_q = select([Client]).where(Client.user_id == admin['id'])
+            client = await pg.fetchrow(sel_q)
+            # TODO: ensure that None is returned when no result found
+            if client is None:
+                ins_q = insert(Client).values(user_id=admin["id"],
+                                              first_name=admin["first_name"],
+                                              username=admin.get("username", None),
+                                              photo=admin.get("photo", None)).returning(Client.id)
+                admin_id = await pg.fetchval(ins_q)
+            else:
+                admin_id = client['id']
+
+            ins_q = insert(ChannelAdmin).values(channel_id=channel_id, admin_id=admin_id)
+            await pg.fetchrow(ins_q)
+            # TODO: check exception when row already exists
 
         API._log(f"Updated channel {channel.username}")
 
@@ -331,30 +353,34 @@ class API(object):
             await client.send_error("client must initialise before attempting to like a channel")
             return
 
-        try:
-            channel = Channel.get(Channel.username == message["username"])
-        except Channel.DoesNotExist:
+        sel_q = select([Channel]).where(Channel.username == message["username"])
+        channel = await pg.fetchrow(sel_q)
+        # TODO: ensure that None is returned when no result found
+        if channel is None:
             await client.send_error("channel does not exist")
             return
 
-        channel_session_action, created = ChannelSessionAction.get_or_create(
-            channel=channel,
-            session=client.session,
-            defaults={
-                "like": True
-            }
-        )
+        # TODO: take user's IP into account to make fake likes adding harder or allow to like only authorized users
+        async with pg.transaction() as conn:
+            sel_q = select([ChannelSessionAction]).\
+                where(and_(ChannelSessionAction.channel_id == channel['id'],
+                           ChannelSessionAction.session_id == client.session['id'])).with_for_update()
+            channel_session_action = await conn.fetchrow(sel_q)
+            # TODO: ensure that None is returned when no result found
+            if channel_session_action is None:
+                ins_q = insert(ChannelSessionAction).values(channel_id=channel['id'], session_id=client.session['id'],
+                                                            like=True)
+                await conn.fetchrow(ins_q)
+            else:
+                if channel_session_action['like']:
+                    await client.send_error("channel already liked")
+                    return
+                upd_q = update(ChannelSessionAction).where(ChannelSessionAction.id == channel_session_action['id']).\
+                    values(like=True)
+                await conn.fetchrow(upd_q)
 
-        if not created and channel_session_action.like:
-            await client.send_error("channel already liked")
-            return
-
-        if not channel_session_action.like:
-            channel_session_action.like = True
-            channel_session_action.save()
-
-        channel.likes += 1
-        channel.save()
+            upd_q = update(Channel).where(Channel.id == channel['id']).values(likes=Channel.likes + 1)
+            await conn.fetchrow(upd_q)
 
         API._log(f'Liked channel {message["username"]}')
 
@@ -368,30 +394,36 @@ class API(object):
             await client.send_error("client must initialise before attempting to dislike a channel")
             return
 
-        try:
-            channel = Channel.get(Channel.username == message["username"])
-        except Channel.DoesNotExist:
+        sel_q = select([Channel]).where(Channel.username == message["username"])
+        channel = await pg.fetchrow(sel_q)
+        # TODO: ensure that None is returned when no result found
+        if channel is None:
             await client.send_error("channel does not exist")
             return
 
-        channel_session_action, created = ChannelSessionAction.get_or_create(
-            channel=channel,
-            session=client.session,
-            defaults={
-                "like": False
-            }
-        )
+        # TODO: take user's IP into account to make fake likes adding harder or allow to like only authorized users
+        # TODO: There is an error - can't undo like or dislike
+        async with pg.transaction() as conn:
+            sel_q = select([ChannelSessionAction]). \
+                where(and_(ChannelSessionAction.channel_id == channel['id'],
+                           ChannelSessionAction.session_id == client.session['id'])).with_for_update()
+            channel_session_action = await conn.fetchrow(sel_q)
+            # TODO: ensure that None is returned when no result found
+            if channel_session_action is None:
+                ins_q = insert(ChannelSessionAction).values(channel_id=channel['id'],
+                                                            session_id=client.session['id'],
+                                                            like=False)
+                await conn.fetchrow(ins_q)
+            else:
+                if not channel_session_action['like']:
+                    await client.send_error("channel already disliked")
+                    return
+                upd_q = update(ChannelSessionAction).where(ChannelSessionAction.id == channel_session_action['id']). \
+                    values(like=False)
+                await conn.fetchrow(upd_q)
 
-        if not created and not channel_session_action.like:
-            await client.send_error("channel already disliked")
-            return
-
-        if channel_session_action.like:
-            channel_session_action.like = False
-            channel_session_action.save()
-
-        channel.likes -= 1
-        channel.save()
+            upd_q = update(Channel).where(Channel.id == channel['id']).values(likes=Channel.likes - 1)
+            await conn.fetchrow(upd_q)
 
         API._log(f'Disliked channel {message["username"]}')
 
