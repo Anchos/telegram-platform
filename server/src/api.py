@@ -142,10 +142,11 @@ class API(object):
             # Session is not found, need to generate one
             API._log("New session init")
             # TODO: there is a possibility that UUID will match with existing one, need to try to generate the new one
-            client.session = {'session_id': str(uuid4()),
-                              'session_expiration': datetime.now() + timedelta(days=2)}
-            ins_q = insert(Session).values(**client.session)
+            session_dict = {'session_id': str(uuid4()),
+                            'expiration': datetime.now() + timedelta(days=2)}
+            ins_q = insert(Session).values(**session_dict)
             await pg.fetchrow(ins_q)
+            client.session = {'session_' + k: v for k, v in iter(session_dict.items())}
 
         response["session_id"] = client.session['session_session_id']
         response["connection_id"] = client.connection_id
