@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 import json
 import logging
 import random
+import traceback
 from uuid import uuid4
 
 from aiohttp import web
@@ -72,7 +73,7 @@ class API(object):
                     "username": update["from"].get("username", None),
                     "language_code": update["from"]["language_code"],
                     "photo": await Telegram.get_user_profile_photo(
-                        bot_token=self.config["bot_token"],
+                        bot_token=Telegram.get_bot_token(),
                         user_id=update["from"]["id"],
                     ),
                 }
@@ -104,7 +105,7 @@ class API(object):
                 await self.pool.clients[text[1]].send_response(response)
 
         except Exception as e:
-            self._log(f"Error during auth: {e.with_traceback()}")
+            self._log('Error during auth: %s\n%s' % (e, traceback.format_exc()))
 
         return web.Response()
 
@@ -120,7 +121,7 @@ class API(object):
         # TODO: check expiration or implement deletion
         session = None
         if 'session_id' in message:
-            sel_q = select(['*'], from_obj=[outerjoin(Session, Client)], use_labels=True).where(
+            sel_q = select([Session, Client], from_obj=[outerjoin(Session, Client)], use_labels=True).where(
                 Session.session_id == message['session_id'])
             session = await pg.fetchrow(sel_q)
             # TODO: ensure that None is returned when no result found
