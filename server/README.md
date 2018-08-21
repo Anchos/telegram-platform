@@ -37,7 +37,7 @@ docker build -t tg-platform-server:latest .
 or via docker
 
 ```bash
-docker run -d --name db postgres
+docker run -d --name db --network host postgres
 docker run -d --name tg-server --network host tg-platform-server:latest
 ```
 

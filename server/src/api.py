@@ -57,37 +57,37 @@ class API(object):
         return connection
 
     async def telegram_request(self, request: web.Request) -> web.Response:
-        update = json.loads(await request.text())["message"]
+        upd = json.loads(await request.text())["message"]
 
-        self._log(f"Telegram sent {update}")
+        self._log(f"Telegram sent {upd}")
 
         try:
-            text = update["text"].split(" ")
+            text = upd["text"].split(" ")
             command = text[0]
 
             if command == "/start":
                 response = {
                     "action": "AUTH",
-                    "user_id": update["from"]["id"],
-                    "first_name": update["from"]["first_name"],
-                    "username": update["from"].get("username", None),
-                    "language_code": update["from"]["language_code"],
+                    "user_id": upd["from"]["id"],
+                    "first_name": upd["from"]["first_name"],
+                    "username": upd["from"].get("username", None),
+                    "language_code": upd["from"]["language_code"],
                     "photo": await Telegram.get_user_profile_photo(
-                        bot_token=Telegram.get_bot_token(),
-                        user_id=update["from"]["id"],
+                        bot_token=Telegram.get_auth_bot_token(),
+                        user_id=upd["from"]["id"],
                     ),
                 }
 
                 # TODO: not sure if is that correct, I think update_or_create should be here
-                sel_q = select([Client]).where(Client.user_id == update['from']['id'])
+                sel_q = select([Client]).where(Client.user_id == upd['from']['id'])
                 client = await pg.fetchrow(sel_q)
                 # TODO: ensure that None is returned when no result found
                 if client is None:
-                    ins_q = insert(Client).values(user_id=update["from"]["id"],
+                    ins_q = insert(Client).values(user_id=upd["from"]["id"],
                                                   first_name=response["first_name"],
                                                   username=response["username"],
                                                   language_code=response["language_code"],
-                                                  photo=response["photo"]).returnung(Client.id)
+                                                  photo=response["photo"]).returning(Client.id)
                     client_id = await pg.fetchval(ins_q)
                     self._log("New telegram client created")
                 else:
@@ -101,9 +101,12 @@ class API(object):
                                'client_language_code': response['language_code'],
                                'client_photo': response['photo']}
                 self.pool.clients[text[1]].session.update(client_dict)
-
                 await self.pool.clients[text[1]].send_response(response)
 
+                upd_q = update(Session).where(
+                    Session.session_id == self.pool.clients[text[1]].session['session_session_id']
+                ).values(client_id=client_id)
+                await pg.fetchrow(upd_q)
         except Exception as e:
             self._log('Error during auth: %s\n%s' % (e, traceback.format_exc()))
 
@@ -245,7 +248,7 @@ class API(object):
         response = await Telegram.send_telegram_request(
             bot_token=Telegram.get_bot_token(),
             method="getChat",
-            payload={"chat_id": message["username"]}
+            params={"chat_id": message["username"]}
         )
 
         if "result" not in response:
@@ -264,7 +267,7 @@ class API(object):
         chat["members"] = (await Telegram.send_telegram_request(
             bot_token=Telegram.get_bot_token(),
             method="getChatMembersCount",
-            payload={"chat_id": message["username"]}
+            params={"chat_id": message["username"]}
         ))["result"]
 
         API._log(f'Members count: {chat["members"]}')
@@ -272,7 +275,7 @@ class API(object):
         admins = (await Telegram.send_telegram_request(
             bot_token=Telegram.get_bot_token(),
             method="getChatAdministrators",
-            payload={"chat_id": message["username"]}
+            params={"chat_id": message["username"]}
         ))
 
         if "result" in admins:

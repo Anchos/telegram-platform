@@ -1,11 +1,16 @@
+from io import BytesIO
 import json
 import logging
 import random
-from io import BytesIO
+from urllib.parse import urlencode
 
 import aiohttp
 
 session = aiohttp.ClientSession(connector=aiohttp.TCPConnector(verify_ssl=False))
+with open('config.json') as f:
+    config = json.loads(f.read())['telegram']
+
+# TODO: handle telegram API errors properly, also handle situation when telegram API will be unavailable
 
 
 class Telegram(object):
@@ -15,24 +20,35 @@ class Telegram(object):
 
     @staticmethod
     def get_bot_token() -> str:
-        file = open("config.json")
-        bot_tokens = json.loads(file.read())["telegram"]["bot_tokens"]
-        file.close()
-        return random.SystemRandom().choice(bot_tokens)
+        return random.SystemRandom().choice(config['bot_tokens'])
 
     @staticmethod
-    async def send_telegram_request(bot_token: str, method: str, payload: dict) -> dict:
-        url = f"https://api.telegram.org/bot{bot_token}/{method}"
-        async with session.get(url=url, data=payload) as response:
+    def get_auth_bot_token() -> str:
+        return config['auth_bot_token']
+
+    @staticmethod
+    async def send_telegram_request(bot_token: str, method: str, params: dict) -> dict:
+        query = urlencode(params)
+        url = f"https://api.telegram.org/bot{bot_token}/{method}?{query}"
+        Telegram._log('Calling %s' % url)
+        async with session.get(url=url) as response:
             return await response.json()
 
     @staticmethod
-    async def get_user_profile_photo(bot_token: str, user_id: int) -> str:
-        file_id = (await Telegram.send_telegram_request(
+    async def get_user_profile_photo(bot_token: str, user_id: int) -> (str, None):
+        resp = await Telegram.send_telegram_request(
             bot_token=bot_token,
             method="getUserProfilePhotos",
-            payload={"user_id": user_id, "limit": 1},
-        ))["result"]["photos"][0][2]["file_id"]
+            params={"user_id": user_id, "limit": 1},
+        )
+        Telegram._log('User profile resp: %s' % resp)
+        if not resp['ok']:
+            return None
+
+        try:
+            file_id = resp["result"]["photos"][0][2]["file_id"]
+        except IndexError:
+            return None
 
         return await Telegram.get_telegram_file(
             bot_token=bot_token,
@@ -44,7 +60,7 @@ class Telegram(object):
         file_path = (await Telegram.send_telegram_request(
             bot_token=bot_token,
             method="getFile",
-            payload={"file_id": file_id}
+            params={"file_id": file_id}
         ))["result"]["file_path"]
 
         url = f"https://api.telegram.org/file/bot{bot_token}/{file_path}"
