@@ -12,6 +12,10 @@ class InitRequest(GenericRequest):
     session_id = marshmallow.fields.String(required=False)
 
 
+class LogoutRequest(GenericRequest):
+    pass
+
+
 class FetchChannelsRequest(GenericRequest):
     title = marshmallow.fields.String(required=False)
     category = marshmallow.fields.String(required=False)

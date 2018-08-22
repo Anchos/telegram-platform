@@ -158,6 +158,29 @@ class API(object):
         await client.send_response(response)
 
     @staticmethod
+    async def logout(client: ClientConnection, message: dict):
+        """
+        Disassociate session and telegram user
+        :param client:
+        :param dict message:
+        """
+        if client.session.get('client_id', None):
+            upd_q = update(Session).where(
+                Session.session_id == client.session['session_session_id']
+            ).values(client_id=None)
+            await pg.fetchrow(upd_q)
+
+            client_dict = {'client_id': None,
+                           'client_user_id': None,
+                           'client_first_name': None,
+                           'client_username': None,
+                           'client_language_code': None,
+                           'client_photo': None}
+            client.session.update(client_dict)
+
+        await client.send_response(message)
+
+    @staticmethod
     async def fetch_channels(client: ClientConnection, message: dict):
         # TODO: pagination, need to limit response size on the server side
         # TODO: Respect Client's language

@@ -30,6 +30,7 @@ class ClientConnection(object):
             "PAYMENT_PROCESS": (API.process_payment, None),
             "PAYMENT_REQUEST_INTERKASSA": (API.prepare_payment, PaymentPrepareRequest),
             "PAYMENT_PROCESS_INTERKASSA": (API.process_payment, PaymentProcessRequest),
+            "LOGOUT": (API.logout, LogoutRequest),
         }
 
     @staticmethod
@@ -41,7 +42,7 @@ class ClientConnection(object):
         return self.session is not None
 
     def is_authorised(self) -> bool:
-        return self.session['client_id'] is not None
+        return self.session.get('client_id', None) is not None
 
     async def send_response(self, response: dict):
         try:
