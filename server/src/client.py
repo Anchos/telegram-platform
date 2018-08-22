@@ -31,6 +31,7 @@ class ClientConnection(object):
             "PAYMENT_REQUEST_INTERKASSA": (API.prepare_payment, PaymentPrepareRequest),
             "PAYMENT_PROCESS_INTERKASSA": (API.process_payment, PaymentProcessRequest),
             "LOGOUT": (API.logout, LogoutRequest),
+            "GET_CATEGORIES": (API.get_categories, GetCategoriesRequest),
         }
 
     @staticmethod

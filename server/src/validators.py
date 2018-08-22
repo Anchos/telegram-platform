@@ -68,3 +68,7 @@ class PaymentPrepareRequest(GenericRequest):
 
 class PaymentProcessRequest(GenericRequest):
     pass
+
+
+class GetCategoriesRequest(GenericRequest):
+    pass

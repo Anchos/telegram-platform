@@ -11,7 +11,7 @@ from sqlalchemy.sql import select, outerjoin, insert, desc, update, and_
 from sqlalchemy.sql.functions import max, count
 
 from .client import ClientConnection
-from .models import Session, Channel, ChannelAdmin, Client, ChannelSessionAction
+from .models import Session, Channel, ChannelAdmin, Client, ChannelSessionAction, Category
 from .pool import Pool
 from .telegram import Telegram
 from .payments import backends
@@ -19,8 +19,8 @@ from .payments import backends
 # TODO: make proper message dispatcher pattern implementation
 # TODO: input values validity and sanity check
 # TODO: Error codes must be enumerated to be translated on every language on the frontend
-# TODO: Add endpoint/message for Category model
 # TODO: Add DB indexes on fields using on where or on order_by
+# TODO: Check user session\authorization status
 
 
 class API(object):
@@ -189,8 +189,8 @@ class API(object):
         if "title" in message and message["title"] is not "":
             filters.append(Channel.title.ilike(f'%{message["title"]}%'))
 
-        if "category" in message:
-            filters.append(Channel.category.name == message["category"])
+        if "category_id" in message:
+            filters.append(Channel.category_id == message["category_id"])
 
         if "members" in message:
             filters.append(Channel.members.between(message["members"][0], message["members"][1]))
@@ -475,3 +475,17 @@ class API(object):
         backend = backends.get("inter_kassa")
         backend.process_payment()
         await client.send_error("Stub payment process response")
+
+    @staticmethod
+    async def get_categories(client: ClientConnection, message: dict):
+        """
+        Get available channel categories list
+        :param client:
+        :param dict message:
+        """
+        # TODO: Respect Client's language
+        sel_q = select([Category]).select_from(Category)
+        results = await pg.fetch(sel_q)
+        message['items'] = [dict(x.items()) for x in results]
+        message['total'] = len(results)
+        await client.send_response(message)
