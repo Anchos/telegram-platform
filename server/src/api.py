@@ -8,7 +8,7 @@ from uuid import uuid4
 from aiohttp import web
 from asyncpgsa import pg
 from sqlalchemy.sql import select, outerjoin, insert, desc, update, and_
-from sqlalchemy.sql.functions import max
+from sqlalchemy.sql.functions import max, count
 
 from .client import ClientConnection
 from .models import Session, Channel, ChannelAdmin, Client, ChannelSessionAction
@@ -161,48 +161,47 @@ class API(object):
     async def fetch_channels(client: ClientConnection, message: dict):
         # TODO: pagination, need to limit response size on the server side
         # TODO: Respect Client's language
-        sel_q = select([Channel])
-
-        query_args = []
+        filters = []
 
         if "title" in message and message["title"] is not "":
-            query_args.append(Channel.title ** f'%{message["title"]}%')
+            filters.append(Channel.title.ilike(f'%{message["title"]}%'))
 
         if "category" in message:
-            query_args.append(Channel.category.name == message["category"])
+            filters.append(Channel.category.name == message["category"])
 
         if "members" in message:
-            query_args.append(Channel.members.between(message["members"][0], message["members"][1]))
+            filters.append(Channel.members.between(message["members"][0], message["members"][1]))
 
         if "cost" in message:
-            query_args.append(Channel.cost.between(message["cost"][0], message["cost"][1]))
+            filters.append(Channel.cost.between(message["cost"][0], message["cost"][1]))
 
         if "likes" in message:
-            query_args.append(Channel.likes.between(message["likes"][0], message["likes"][1]))
+            filters.append(Channel.likes.between(message["likes"][0], message["likes"][1]))
 
-        if len(query_args) > 0:
-            sel_q = sel_q.where(*query_args)
+        total = await pg.fetchval(select([count()]).select_from(Channel).where(and_(*filters)))
 
-        total = await pg.fetchval(sel_q.count())
+        if total:
+            sel_q = select([Channel]).select_from(Channel).where(and_(*filters))
 
-        # Apply ordering
-        sel_q = sel_q.order_by([desc(Channel.vip), desc(Channel.members), desc(Channel.cost)])
+            # Apply ordering
+            sel_q = sel_q.order_by(desc(Channel.vip), desc(Channel.members), desc(Channel.cost))
 
-        # Apply Limit/Offset
-        sel_q = sel_q.offset(message['offset']).limit(message['count'])
+            # Apply Limit/Offset
+            sel_q = sel_q.offset(message['offset']).limit(message['count'])
 
-        channels = await pg.fetch(sel_q)
+            channels = await pg.fetch(sel_q)
+        else:
+            channels = []
 
         stat_q = select([max(Channel.members), max(Channel.cost), max(Channel.likes)])
         stats = await pg.fetchrow(stat_q)
-        print(list(stats.keys()))
 
         message["data"] = {
             "items": [dict(x.items()) for x in channels],
             "total": total,
-            "max_members": stats['max_members'],
-            "max_cost": stats['max_cost'],
-            "max_likes": stats['max_likes'],
+            "max_members": stats['max_1'],
+            "max_cost": stats['max_2'],
+            "max_likes": stats['max_3'],
         }
 
         await client.send_response(message)
