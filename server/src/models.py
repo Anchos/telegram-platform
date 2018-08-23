@@ -80,6 +80,7 @@ class Channel(Base):
     verified = Column(Boolean, default=False)
     category_id = Column(ForeignKey('category.id'))
     likes = Column(Integer, nullable=False, default=0)
+    mutual_promotion = Column(Boolean, default=False)
 
     category = relationship('Category')
 

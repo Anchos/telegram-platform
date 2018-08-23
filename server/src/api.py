@@ -201,12 +201,23 @@ class API(object):
         if "likes" in message:
             filters.append(Channel.likes.between(message["likes"][0], message["likes"][1]))
 
+        if "mut_promo" in message:
+            filters.append(Channel.mutual_promotion == message['mut_promo'])
+
+        if "verified" in message:
+            filters.append(Channel.verified == message['verified'])
+
+        if "partner" in message:
+            # TODO: proper premium functions implementation required
+            filters.append(Channel.vip == message['partner'])
+
         total = await pg.fetchval(select([count()]).select_from(Channel).where(and_(*filters)))
 
         if total:
             sel_q = select([Channel]).select_from(Channel).where(and_(*filters))
 
             # Apply ordering
+            # TODO: proper premium functions implementation required
             sel_q = sel_q.order_by(desc(Channel.vip), desc(Channel.members), desc(Channel.cost))
 
             # Apply Limit/Offset
