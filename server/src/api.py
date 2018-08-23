@@ -246,7 +246,7 @@ class API(object):
         channel = await pg.fetchrow(sel_q)
         # TODO: ensure that None is returned when no result found
         if channel is None:
-            await client.send_error('No such channel')
+            await client.send_error(message['id'], 404, 'No such channel')
             return
 
         message['data'] = dict(channel.items())
@@ -258,7 +258,7 @@ class API(object):
         if not client.is_authorised():
             API._log("Unauthorised client tried to verify a channel")
 
-            await client.send_error("client must login before attempting to verify a channel")
+            await client.send_error(message['id'], 401, "client must login before attempting to verify a channel")
             return
 
         # TODO: User can be an admin for several channels, message['username'] should be taken into account
@@ -274,7 +274,7 @@ class API(object):
             })
 
         else:
-            await client.send_error("client is not admin")
+            await client.send_error(message['id'], 401, "client is not admin")
 
     @staticmethod
     async def update_channel(client: ClientConnection, message: dict):
@@ -287,7 +287,7 @@ class API(object):
         if "result" not in response:
             API._log("Channel does not exist")
 
-            await client.send_error("channel does not exist")
+            await client.send_error(message['id'], 404, "channel does not exist")
             return
 
         else:
@@ -388,14 +388,14 @@ class API(object):
         if not client.is_initialised():
             API._log("Uninitialised client tried to like a channel")
 
-            await client.send_error("client must initialise before attempting to like a channel")
+            await client.send_error(message['id'], 401, "client must initialise before attempting to like a channel")
             return
 
         sel_q = select([Channel]).where(Channel.username == message["username"])
         channel = await pg.fetchrow(sel_q)
         # TODO: ensure that None is returned when no result found
         if channel is None:
-            await client.send_error("channel does not exist")
+            await client.send_error(message['id'], 404, "channel does not exist")
             return
 
         # TODO: take user's IP into account to make fake likes adding harder or allow to like only authorized users
@@ -411,7 +411,7 @@ class API(object):
                 await conn.fetchrow(ins_q)
             else:
                 if channel_session_action['like']:
-                    await client.send_error("channel already liked")
+                    await client.send_error(message['id'], 403, "channel already liked")
                     return
                 upd_q = update(ChannelSessionAction).where(ChannelSessionAction.id == channel_session_action['id']).\
                     values(like=True)
@@ -429,14 +429,14 @@ class API(object):
         if not client.is_initialised():
             API._log("Uninitialised client tried to dislike a channel")
 
-            await client.send_error("client must initialise before attempting to dislike a channel")
+            await client.send_error(message['id'], 401, "client must initialise before attempting to dislike a channel")
             return
 
         sel_q = select([Channel]).where(Channel.username == message["username"])
         channel = await pg.fetchrow(sel_q)
         # TODO: ensure that None is returned when no result found
         if channel is None:
-            await client.send_error("channel does not exist")
+            await client.send_error(message['id'], 404, "channel does not exist")
             return
 
         # TODO: take user's IP into account to make fake likes adding harder or allow to like only authorized users
@@ -454,7 +454,7 @@ class API(object):
                 await conn.fetchrow(ins_q)
             else:
                 if not channel_session_action['like']:
-                    await client.send_error("channel already disliked")
+                    await client.send_error(message['id'], 403, "channel already disliked")
                     return
                 upd_q = update(ChannelSessionAction).where(ChannelSessionAction.id == channel_session_action['id']). \
                     values(like=False)
@@ -473,7 +473,7 @@ class API(object):
         backend = backends.get("inter_kassa")
         backend.prepare_payment()
 
-        await client.send_error("Stub payment response")
+        await client.send_error(message['id'], 501, "Stub payment response")
 
     @staticmethod
     async def process_payment(client: ClientConnection, message: dict):
@@ -485,7 +485,7 @@ class API(object):
         """
         backend = backends.get("inter_kassa")
         backend.process_payment()
-        await client.send_error("Stub payment process response")
+        await client.send_error(message['id'], 501, "Stub payment process response")
 
     @staticmethod
     async def get_categories(client: ClientConnection, message: dict):

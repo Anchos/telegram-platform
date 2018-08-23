@@ -56,8 +56,8 @@ class ClientConnection(object):
         except TypeError:
             self.log("Value returned by dumps param is not str")
 
-    async def send_error(self, error: str):
-        await self.send_response({"error": error})
+    async def send_error(self, msg_id: int, code: int, description: str):
+        await self.send_response({'desc': description, 'id': msg_id, 'code': code})
 
     async def prepare_connection(self, request: web.Request) -> web.WebSocketResponse:
         connection = web.WebSocketResponse(
@@ -79,7 +79,7 @@ class ClientConnection(object):
                 except ValueError:
                     self.log("Invalid JSON")
 
-                    await self.send_error("invalid JSON")
+                    await self.send_error(0, 400, 'invalid JSON')
                     continue
 
                 await self.process_message(message)
@@ -94,14 +94,14 @@ class ClientConnection(object):
     async def process_message(self, message: dict):
         errors = GenericRequest().validate(message)
         if errors:
-            await self.send_error(errors)
+            await self.send_error(message['id'], 400, errors)
             return
 
         action, validator = self.actions.get(message["action"], (None, None))
         if action is None:
             self.log(f'No such action {message["action"]}')
 
-            await self.send_error(f'no such action {message["action"]}')
+            await self.send_error(message['id'], 400, f'no such action {message["action"]}')
             return
         else:
             self.log(f'Action: {message["action"]}')
@@ -109,7 +109,7 @@ class ClientConnection(object):
             try:
                 message = validator().load(message)
             except marshmallow.ValidationError as e:
-                await self.send_error(e.messages)
+                await self.send_error(message['id'], 400, e.messages)
                 return
 
             await action(client=self, message=message)
