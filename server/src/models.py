@@ -70,7 +70,7 @@ class Channel(Base):
     photo = Column(String(255), nullable=True)
     description = Column(Text, nullable=True)
     cost = Column(Integer, nullable=False, default=0)
-    language = Column(String(255), nullable=True)
+    language = Column(String(255), nullable=False, default='ru')
     members = Column(Integer, nullable=False, default=0)
     members_growth = Column(Integer, nullable=False, default=0)
     views = Column(Integer, nullable=False, default=0)
