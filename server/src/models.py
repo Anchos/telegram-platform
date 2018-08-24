@@ -22,7 +22,6 @@ class Bot(Base):
 class Category(Base):
     __tablename__ = 'category'
 
-    # TODO: remove redundant category ID, name is enough here
     id = Column(Integer, primary_key=True)
     name = Column(String(255), default="")
 
@@ -80,7 +79,7 @@ class Channel(Base):
     verified = Column(Boolean, default=False)
     category_id = Column(ForeignKey('category.id'))
     likes = Column(Integer, nullable=False, default=0)
-    mutual_promotion = Column(Boolean, default=False)
+    mutual_promotion = Column(Boolean, default=False, nullable=False)
 
     category = relationship('Category')
 
