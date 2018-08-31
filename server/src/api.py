@@ -289,7 +289,8 @@ class API(object):
             channel_admin.channel.verified = True
             channel_admin.channel.save()
 
-            await client.send_response({})
+            await client.send_response({'id': message['id'],
+                                        'action': message['action']})
 
         else:
             await client.send_error(message['id'], 401, "client is not admin")
@@ -395,9 +396,10 @@ class API(object):
             await pg.fetchrow(ins_q)
             # TODO: check exception when row already exists
 
-        API._log(f"Updated channel {channel.username}")
+        API._log('Updated channel "%s"' % chat['username'])
 
-        await client.send_response({})
+        await client.send_response({'id': message['id'],
+                                    'action': message['action']})
 
     @staticmethod
     async def like_channel(client: ClientConnection, message: dict):
@@ -438,7 +440,8 @@ class API(object):
 
         API._log(f'Liked channel {message["username"]}')
 
-        await client.send_response({})
+        await client.send_response({'id': message['id'],
+                                    'action': message['action']})
 
     @staticmethod
     async def dislike_channel(client: ClientConnection, message: dict):
@@ -482,7 +485,8 @@ class API(object):
 
         API._log(f'Disliked channel {message["username"]}')
 
-        await client.send_response({})
+        await client.send_response({'id': message['id'],
+                                    'action': message['action']})
 
     @staticmethod
     async def prepare_payment(client: ClientConnection, message: dict):
