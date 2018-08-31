@@ -54,7 +54,6 @@ class Sticker(Base):
 class Tag(Base):
     __tablename__ = 'tag'
 
-    # TODO: remove redundant tag ID, name is enough here
     id = Column(Integer, primary_key=True)
     name = Column(String(255), nullable=False, unique=True)
 
@@ -98,6 +97,7 @@ class Session(Base):
 class ChannelAdmin(Base):
     __tablename__ = 'channeladmin'
 
+    # TODO: multicolumn primary key should be here
     id = Column(Integer, primary_key=True)
     channel_id = Column(ForeignKey('channel.id'), nullable=False)
     admin_id = Column(ForeignKey('client.id'), nullable=False)
@@ -109,6 +109,7 @@ class ChannelAdmin(Base):
 class ChannelTag(Base):
     __tablename__ = 'channeltag'
 
+    # TODO: multicolumn primary key should be here
     id = Column(Integer, primary_key=True)
     channel_id = Column(ForeignKey('channel.id'), nullable=False)
     tag_id = Column(ForeignKey('tag.id'), nullable=False)
@@ -120,6 +121,7 @@ class ChannelTag(Base):
 class ChannelSessionAction(Base):
     __tablename__ = 'channelsessionaction'
 
+    # TODO: multicolumn primary key should be here
     id = Column(Integer, primary_key=True)
     channel_id = Column(ForeignKey('channel.id'), nullable=False)
     session_id = Column(ForeignKey("session.id"), nullable=False)

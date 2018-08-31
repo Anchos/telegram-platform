@@ -7,18 +7,18 @@ from uuid import uuid4
 
 from aiohttp import web
 from asyncpgsa import pg
-from sqlalchemy.sql import select, outerjoin, insert, desc, update, and_
+from sqlalchemy import func
+from sqlalchemy.sql import select, outerjoin, insert, desc, update, and_, or_, delete
 from sqlalchemy.sql.functions import max, count
 
 from .client import ClientConnection
-from .models import Session, Channel, ChannelAdmin, Client, ChannelSessionAction, Category
+from .models import Session, Channel, ChannelAdmin, Client, ChannelSessionAction, Category, Tag, ChannelTag
 from .pool import Pool
 from .telegram import Telegram
 from .payments import backends
 
 # TODO: make proper message dispatcher pattern implementation
 # TODO: input values validity and sanity check
-# TODO: Error codes must be enumerated to be translated on every language on the frontend
 # TODO: Add DB indexes on fields using on where or on order_by
 # TODO: Check user session\authorization status
 
@@ -185,9 +185,13 @@ class API(object):
         # TODO: pagination, need to limit response size on the server side
         # TODO: Respect Client's language
         filters = []
+        from_obj = Channel
 
-        if "title" in message and message["title"] is not "":
-            filters.append(Channel.title.ilike(f'%{message["title"]}%'))
+        if message.get('title', None):
+            filters.append(or_(Channel.title.ilike(f'%{message["title"]}%'),
+                               Channel.description.ilike('%s' % message['title']),
+                               func.lower(Tag.name).startswith(message['title'].lower())))
+            from_obj = outerjoin(outerjoin(Channel, ChannelTag), Tag)
 
         if "category_id" in message:
             filters.append(Channel.category_id == message["category_id"])
@@ -211,10 +215,10 @@ class API(object):
             # TODO: proper premium functions implementation required
             filters.append(Channel.vip == message['partner'])
 
-        total = await pg.fetchval(select([count()]).select_from(Channel).where(and_(*filters)))
+        total = await pg.fetchval(select([count(Channel.id.distinct())]).select_from(from_obj).where(and_(*filters)))
 
         if total:
-            sel_q = select([Channel]).select_from(Channel).where(and_(*filters))
+            sel_q = select([Channel]).select_from(from_obj).where(and_(*filters))
 
             # Apply ordering
             # TODO: proper premium functions implementation required
@@ -223,7 +227,19 @@ class API(object):
             # Apply Limit/Offset
             sel_q = sel_q.offset(message['offset']).limit(message['count'])
 
-            channels = await pg.fetch(sel_q)
+            res = await pg.fetch(sel_q)
+
+            # And finally fetch channel tags
+            tag_q = select([ChannelTag, Tag]).\
+                select_from(outerjoin(ChannelTag, Tag)).\
+                where(ChannelTag.channel_id.in_([item['id'] for item in res]))
+            tags_raw = await pg.fetch(tag_q)
+
+            # Serialize all the stuff
+            tags_dict = {item['id']: [] for item in res}
+            for entry in tags_raw:
+                tags_dict[entry['channel_id']].append(entry['name'])
+            channels = [dict(list(item.items()) + [('tags', tags_dict[item['id']])]) for item in res]
         else:
             channels = []
 
@@ -231,7 +247,7 @@ class API(object):
         stats = await pg.fetchrow(stat_q)
 
         message["data"] = {
-            "items": [dict(x.items()) for x in channels],
+            "items": channels,
             "total": total,
             "max_members": stats['max_1'],
             "max_cost": stats['max_2'],
@@ -242,22 +258,26 @@ class API(object):
 
     @staticmethod
     async def fetch_channel(client: ClientConnection, message: dict):
-        sel_q = select([Channel]).where(Channel.username == message['username'])
-        channel = await pg.fetchrow(sel_q)
+        sel_q = select([Channel]).select_from(Channel).where(Channel.username == message['username'])
+        res = await pg.fetchrow(sel_q)
         # TODO: ensure that None is returned when no result found
-        if channel is None:
+        if not res:
             await client.send_error(message['id'], 404, 'No such channel')
             return
+        channel = dict(res.items())
 
-        message['data'] = dict(channel.items())
+        sel_q = select([Tag]).select_from(outerjoin(ChannelTag, Tag)).where(ChannelTag.channel_id == channel['id'])
+        tags = await pg.fetch(sel_q)
+        channel['tags'] = [tag['name'] for tag in tags]
+
+        message['data'] = channel
 
         await client.send_response(message)
 
     @staticmethod
     async def verify_channel(client: ClientConnection, message: dict):
-        if not client.is_authorised():
+        if not client.is_authorized():
             API._log("Unauthorised client tried to verify a channel")
-
             await client.send_error(message['id'], 401, "client must login before attempting to verify a channel")
             return
 
@@ -269,9 +289,7 @@ class API(object):
             channel_admin.channel.verified = True
             channel_admin.channel.save()
 
-            await client.send_response({
-                "is_admin": True
-            })
+            await client.send_response({})
 
         else:
             await client.send_error(message['id'], 401, "client is not admin")
@@ -379,9 +397,7 @@ class API(object):
 
         API._log(f"Updated channel {channel.username}")
 
-        await client.send_response({
-            "updated": True
-        })
+        await client.send_response({})
 
     @staticmethod
     async def like_channel(client: ClientConnection, message: dict):
@@ -422,10 +438,11 @@ class API(object):
 
         API._log(f'Liked channel {message["username"]}')
 
-        await client.send_response({"liked": True})
+        await client.send_response({})
 
     @staticmethod
     async def dislike_channel(client: ClientConnection, message: dict):
+        # TODO: must be merged with like_channel according to new API
         if not client.is_initialised():
             API._log("Uninitialised client tried to dislike a channel")
 
@@ -465,7 +482,7 @@ class API(object):
 
         API._log(f'Disliked channel {message["username"]}')
 
-        await client.send_response({"disliked": True})
+        await client.send_response({})
 
     @staticmethod
     async def prepare_payment(client: ClientConnection, message: dict):
@@ -494,9 +511,101 @@ class API(object):
         :param client:
         :param dict message:
         """
+        # TODO: Depricated
         # TODO: Respect Client's language
         sel_q = select([Category]).select_from(Category)
         results = await pg.fetch(sel_q)
         message['items'] = [dict(x.items()) for x in results]
         message['total'] = len(results)
         await client.send_response(message)
+
+    @staticmethod
+    async def get_tags(client: ClientConnection, message: dict):
+        """
+        Get available channel tags list
+        :param client:
+        :param dict message:
+        """
+        # TODO: Respect Client's language
+        sel_q = select([Tag]).select_from(Tag).order_by(Tag.name).limit(5)
+        if 'name' in message:
+            # istartswith analog here
+            sel_q = sel_q.where(func.lower(Tag.name).startswith(message['name'].lower()))
+        results = await pg.fetch(sel_q)
+        message['items'] = [dict(x.items()) for x in results]
+        message['total'] = len(results)
+        await client.send_response(message)
+
+    @staticmethod
+    async def modify_channel(client: ClientConnection, message: dict):
+        """
+        Get available channel tags list
+        :param client:
+        :param dict message:
+        """
+        # Check is user authorized
+        if not client.is_authorized():
+            await client.send_error(message['id'], 401, "client must login before attempting to modify a channel")
+            return
+
+        # Check channel exists in our DB and verified
+        # Check user is admin
+        sel_q = select([Channel]).\
+            select_from(outerjoin(Channel, ChannelAdmin)).\
+            where(and_(Channel.username == message['username'],
+                       Channel.verified == True,
+                       ChannelAdmin.admin_id == client.session['client_id']))
+        API._log('DBG: %s' % sel_q)
+        res = await pg.fetch(sel_q)
+        if not res:
+            await client.send_error(message['id'], 404, 'Channel is not found or not verified or user is not admin')
+            return
+        channel = dict(res.items())
+
+        updated = {}
+        # Check category change
+        if 'category_id' in message:
+            updated['category_id'] = message['category_id']
+        # Check mutual promotion changed
+        if 'mut_promo' in message:
+            updated['mutual_promotion'] = message['mut_promo']
+        # Check cost changed
+        if 'cost' in message:
+            updated['cost'] = message['cost']
+        # Check language changed
+        if 'language' in message:
+            updated['language'] = message['language']
+        # Check description changed
+        if 'description' in message:
+            updated['description'] = message['description']
+        # Check tags changed
+        if 'tags' in message:
+            # TODO: custom tags can be defined for premium channels
+            # istartswith analog here
+            sel_q = select([Tag]).select_from(Tag).\
+                where(func.lower(Tag.name).in_([tag.lower() for tag in message['tags']]))
+            API._log('DBG: %s' % sel_q)
+            tags = await pg.fetch(sel_q)
+            async with pg.transaction() as conn:
+                # Delete current tags
+                del_q = delete(ChannelTag).where(ChannelTag.channel_id == channel['id'])
+                await conn.fetchrow(del_q)
+                # Insert new ones
+                for tag in tags:
+                    ins_q = insert(ChannelTag).values(channel_id=channel['id'], tag_id=tag['id'])
+                    await conn.fetchrow(ins_q)
+        else:
+            # if not changed, just get current ones
+            sel_q = select([Tag]).select_from(outerjoin(ChannelTag, Tag)).where(ChannelTag.channel_id == channel['id'])
+            tags = await pg.fetch(sel_q)
+        channel['tags'] = [tag['name'] for tag in tags]
+
+        if updated:
+            upd_q = update(Channel).where(Channel.id == channel['id']).values(**updated)
+            await pg.fetchrow(upd_q)
+            channel.update(updated)
+
+        # Return channel object
+        await client.send_response({'data': channel,
+                                    'id': message['id'],
+                                    'action': message['action']})

@@ -32,6 +32,8 @@ class ClientConnection(object):
             "PAYMENT_PROCESS_INTERKASSA": (API.process_payment, PaymentProcessRequest),
             "LOGOUT": (API.logout, LogoutRequest),
             "GET_CATEGORIES": (API.get_categories, GetCategoriesRequest),
+            "GET_TAGS": (API.get_tags, GetTagsRequest),
+            "MODIFY_CHANNEL": (API.modify_channel, ModifyChannelRequest),
         }
 
     @staticmethod
@@ -42,7 +44,7 @@ class ClientConnection(object):
     def is_initialised(self) -> bool:
         return self.session is not None
 
-    def is_authorised(self) -> bool:
+    def is_authorized(self) -> bool:
         return self.session.get('client_id', None) is not None
 
     async def send_response(self, response: dict):

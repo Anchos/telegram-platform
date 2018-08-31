@@ -72,3 +72,20 @@ class PaymentProcessRequest(GenericRequest):
 
 class GetCategoriesRequest(GenericRequest):
     pass
+
+
+class GetTagsRequest(GenericRequest):
+    name = marshmallow.fields.String(required=False)
+
+
+class ModifyChannelRequest(GenericRequest):
+    username = marshmallow.fields.String(required=True)
+    category_id = marshmallow.fields.Integer(required=False)
+    tags = marshmallow.fields.List(
+        required=False,
+        cls_or_instance=marshmallow.fields.String()
+    )
+    mut_promo = marshmallow.fields.Boolean(required=False)
+    cost = marshmallow.fields.Integer(required=False)
+    language = marshmallow.fields.String(required=False, validate=Length(equal=2))
+    description = marshmallow.fields.String(required=False)
