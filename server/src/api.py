@@ -81,7 +81,6 @@ class API(object):
                 # TODO: not sure if is that correct, I think update_or_create should be here
                 sel_q = select([Client]).where(Client.user_id == upd['from']['id'])
                 client = await pg.fetchrow(sel_q)
-                # TODO: ensure that None is returned when no result found
                 if client is None:
                     ins_q = insert(Client).values(user_id=upd["from"]["id"],
                                                   first_name=response["first_name"],
@@ -127,7 +126,6 @@ class API(object):
             sel_q = select([Session, Client], from_obj=[outerjoin(Session, Client)], use_labels=True).where(
                 Session.session_id == message['session_id'])
             session = await pg.fetchrow(sel_q)
-            # TODO: ensure that None is returned when no result found
         if session is not None:
             # Got session from DB, sent it's info to client
             API._log("Existing session initialization")
@@ -182,8 +180,6 @@ class API(object):
 
     @staticmethod
     async def fetch_channels(client: ClientConnection, message: dict):
-        # TODO: pagination, need to limit response size on the server side
-        # TODO: Respect Client's language
         filters = []
         from_obj = Channel
 
@@ -215,6 +211,9 @@ class API(object):
             # TODO: proper premium functions implementation required
             filters.append(Channel.vip == message['partner'])
 
+        if 'language' in message:
+            filters.append(Channel.language == message['language'].lower())
+
         total = await pg.fetchval(select([count(Channel.id.distinct())]).select_from(from_obj).where(and_(*filters)))
 
         if total:
@@ -222,6 +221,7 @@ class API(object):
 
             # Apply ordering
             # TODO: proper premium functions implementation required
+            # TODO: manage sorting
             sel_q = sel_q.order_by(desc(Channel.vip), desc(Channel.members), desc(Channel.cost))
 
             # Apply Limit/Offset
@@ -260,7 +260,6 @@ class API(object):
     async def fetch_channel(client: ClientConnection, message: dict):
         sel_q = select([Channel]).select_from(Channel).where(Channel.username == message['username'])
         res = await pg.fetchrow(sel_q)
-        # TODO: ensure that None is returned when no result found
         if not res:
             await client.send_error(message['id'], 404, 'No such channel')
             return
@@ -284,7 +283,6 @@ class API(object):
         # TODO: User can be an admin for several channels, message['username'] should be taken into account
         sel_q = select([ChannelAdmin]).where(ChannelAdmin.admin_id == client.session['client_id'])
         channel_admin = await pg.fetchrow(sel_q)
-        # TODO: ensure that None is returned when no result found
         if channel_admin is not None:
             channel_admin.channel.verified = True
             channel_admin.channel.save()
@@ -362,7 +360,6 @@ class API(object):
 
         sel_q = select([Channel]).where(Channel.telegram_id == chat["id"])
         channel = await pg.fetchrow(sel_q)
-        # TODO: ensure that None is returned when no result found
         channel_dict = {'telegram_id': chat["id"],
                         'username': "@" + chat["username"],
                         'title': chat["title"],
@@ -382,7 +379,6 @@ class API(object):
         for admin in admins:
             sel_q = select([Client]).where(Client.user_id == admin['id'])
             client = await pg.fetchrow(sel_q)
-            # TODO: ensure that None is returned when no result found
             if client is None:
                 ins_q = insert(Client).values(user_id=admin["id"],
                                               first_name=admin["first_name"],
@@ -411,7 +407,6 @@ class API(object):
 
         sel_q = select([Channel]).where(Channel.username == message["username"])
         channel = await pg.fetchrow(sel_q)
-        # TODO: ensure that None is returned when no result found
         if channel is None:
             await client.send_error(message['id'], 404, "channel does not exist")
             return
@@ -422,7 +417,6 @@ class API(object):
                 where(and_(ChannelSessionAction.channel_id == channel['id'],
                            ChannelSessionAction.session_id == client.session['id'])).with_for_update()
             channel_session_action = await conn.fetchrow(sel_q)
-            # TODO: ensure that None is returned when no result found
             if channel_session_action is None:
                 ins_q = insert(ChannelSessionAction).values(channel_id=channel['id'], session_id=client.session['id'],
                                                             like=True)
@@ -454,7 +448,6 @@ class API(object):
 
         sel_q = select([Channel]).where(Channel.username == message["username"])
         channel = await pg.fetchrow(sel_q)
-        # TODO: ensure that None is returned when no result found
         if channel is None:
             await client.send_error(message['id'], 404, "channel does not exist")
             return
@@ -466,7 +459,6 @@ class API(object):
                 where(and_(ChannelSessionAction.channel_id == channel['id'],
                            ChannelSessionAction.session_id == client.session['id'])).with_for_update()
             channel_session_action = await conn.fetchrow(sel_q)
-            # TODO: ensure that None is returned when no result found
             if channel_session_action is None:
                 ins_q = insert(ChannelSessionAction).values(channel_id=channel['id'],
                                                             session_id=client.session['id'],
@@ -516,7 +508,6 @@ class API(object):
         :param dict message:
         """
         # TODO: Depricated
-        # TODO: Respect Client's language
         sel_q = select([Category]).select_from(Category)
         results = await pg.fetch(sel_q)
         message['items'] = [dict(x.items()) for x in results]
@@ -530,8 +521,7 @@ class API(object):
         :param client:
         :param dict message:
         """
-        # TODO: Respect Client's language
-        sel_q = select([Tag]).select_from(Tag).order_by(Tag.name).limit(5)
+        sel_q = select([Tag]).select_from(Tag).order_by(Tag.name).where(Tag.language == message['language']).limit(5)
         if 'name' in message:
             # istartswith analog here
             sel_q = sel_q.where(func.lower(Tag.name).startswith(message['name'].lower()))

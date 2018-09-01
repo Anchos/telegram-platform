@@ -18,13 +18,13 @@ class LogoutRequest(GenericRequest):
 
 class FetchChannelsRequest(GenericRequest):
     title = marshmallow.fields.String(required=False)
-    category = marshmallow.fields.String(required=False)
+    category_id = marshmallow.fields.Integer(required=False)
     count = marshmallow.fields.Integer(
         required=False,
         missing=10,
         validate=Range(min=1, max=20)
     )
-    offset = marshmallow.fields.Integer(required=False, missing=0)
+    offset = marshmallow.fields.Integer(required=False, missing=0, validate=Range(0))
     members = marshmallow.fields.List(
         required=False,
         cls_or_instance=marshmallow.fields.Integer(),
@@ -40,6 +40,10 @@ class FetchChannelsRequest(GenericRequest):
         cls_or_instance=marshmallow.fields.Integer(),
         validate=Length(equal=2)
     )
+    mut_promo = marshmallow.fields.Boolean(required=False)
+    verified = marshmallow.fields.Boolean(required=False)
+    partner = marshmallow.fields.Boolean(required=False)
+    language = marshmallow.fields.String(required=False, validate=Length(equal=2), missing='ru')
 
 
 class FetchChannelRequest(GenericRequest):
@@ -76,6 +80,7 @@ class GetCategoriesRequest(GenericRequest):
 
 class GetTagsRequest(GenericRequest):
     name = marshmallow.fields.String(required=False)
+    language = marshmallow.fields.String(required=False, validate=Length(equal=2), missing='ru')
 
 
 class ModifyChannelRequest(GenericRequest):

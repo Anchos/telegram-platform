@@ -35,7 +35,7 @@ class Client(Base):
     first_name = Column(String(255), nullable=True)
     username = Column(String(255), nullable=True)
     balance = Column(DECIMAL(12, 2), nullable=True, default=0.00)  # TODO: obsolete
-    language_code = Column(String(255), nullable=True)
+    language_code = Column(String(2), nullable=True)
     photo = Column(String(255), nullable=True)
 
 
@@ -48,7 +48,7 @@ class Sticker(Base):
     photo = Column(String(255), nullable=True)
     category = Column(String(255), nullable=True)
     installs = Column(Integer, default=0)
-    language = Column(String(255), nullable=True)
+    language = Column(String(2), nullable=True, default='ru')
 
 
 class Tag(Base):
@@ -56,6 +56,7 @@ class Tag(Base):
 
     id = Column(Integer, primary_key=True)
     name = Column(String(255), nullable=False, unique=True)
+    language = Column(String(2), nullable=False, default='ru')
 
 
 class Channel(Base):
@@ -69,7 +70,7 @@ class Channel(Base):
     photo = Column(String(255), nullable=True)
     description = Column(Text, nullable=True)
     cost = Column(Integer, nullable=False, default=0)
-    language = Column(String(255), nullable=False, default='ru')
+    language = Column(String(2), nullable=False, default='ru')
     members = Column(Integer, nullable=False, default=0)
     members_growth = Column(Integer, nullable=False, default=0)
     views = Column(Integer, nullable=False, default=0)
