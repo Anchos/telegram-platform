@@ -3,6 +3,7 @@ from sqlalchemy import BigInteger, Boolean, Column, DateTime, ForeignKey, Intege
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import expression
 
 Base = declarative_base()
 metadata = Base.metadata
@@ -102,6 +103,8 @@ class ChannelAdmin(Base):
     id = Column(Integer, primary_key=True)
     channel_id = Column(ForeignKey('channel.id'), nullable=False)
     admin_id = Column(ForeignKey('client.id'), nullable=False)
+    owner = Column(Boolean, nullable=False, server_default=expression.false())
+    raw = Column(JSONB)
 
     admin = relationship('Client')
     channel = relationship('Channel')

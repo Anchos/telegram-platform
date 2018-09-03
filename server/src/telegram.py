@@ -27,12 +27,18 @@ class Telegram(object):
         return config['auth_bot_token']
 
     @staticmethod
+    def get_admin_bot_token() -> str:
+        return config['admin_bot_token']
+
+    @staticmethod
     async def send_telegram_request(bot_token: str, method: str, params: dict) -> dict:
         query = urlencode(params)
         url = f"https://api.telegram.org/bot{bot_token}/{method}?{query}"
-        Telegram._log('Calling %s' % url)
+        Telegram._log('=> %s' % url)
         async with session.get(url=url) as response:
-            return await response.json()
+            resp = await response.json()
+            Telegram._log('<= %s' % resp)
+            return resp
 
     @staticmethod
     async def get_user_profile_photo(bot_token: str, user_id: int) -> (str, None):
@@ -41,7 +47,6 @@ class Telegram(object):
             method="getUserProfilePhotos",
             params={"user_id": user_id, "limit": 1},
         )
-        Telegram._log('User profile resp: %s' % resp)
         if not resp['ok']:
             return None
 

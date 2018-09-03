@@ -295,69 +295,53 @@ class API(object):
 
     @staticmethod
     async def update_channel(client: ClientConnection, message: dict):
+        # Getting general channel info
         response = await Telegram.send_telegram_request(
             bot_token=Telegram.get_bot_token(),
             method="getChat",
             params={"chat_id": message["username"]}
         )
-
-        if "result" not in response:
-            API._log("Channel does not exist")
-
+        chat = response.get('result', None)
+        if not chat:
             await client.send_error(message['id'], 404, "channel does not exist")
             return
+        if chat['type'] != 'channel':
+            await client.send_error(message['id'], 403, 'Not a channel, but %s' % chat['type'])
+            return
 
-        else:
-            API._log("Channel exists")
-
-        chat = response["result"]
-
-        API._log(f"Chat info: {chat}")
-
+        # Get channel members count
         chat["members"] = (await Telegram.send_telegram_request(
             bot_token=Telegram.get_bot_token(),
             method="getChatMembersCount",
             params={"chat_id": message["username"]}
         ))["result"]
 
-        API._log(f'Members count: {chat["members"]}')
-
+        # Get channel admin user list via special public bot
         admins = (await Telegram.send_telegram_request(
-            bot_token=Telegram.get_bot_token(),
+            bot_token=Telegram.get_admin_bot_token(),
             method="getChatAdministrators",
             params={"chat_id": message["username"]}
         ))
+        admins = admins.get('result', [])
+        for admin in admins:
+            # Bots are not welcome here
+            if admin['user']['is_bot']:
+                continue
 
-        if "result" in admins:
-            admins = admins["result"]
+            user_info = admin['user']
+            user_info['photo'] = await Telegram.get_user_profile_photo(
+                bot_token=Telegram.get_bot_token(),
+                user_id=user_info['id'],
+            )
 
-            API._log(f"Admins: {admins}")
-
-            for x in range(len(admins)):
-                admins[x] = admins[x]["user"]
-                try:
-                    API._log(admins[x]["id"])
-                    admins[x]["photo"] = await Telegram.get_user_profile_photo(
-                        bot_token=Telegram.get_bot_token(),
-                        user_id=admins[x]["id"],
-                    )
-                    API._log(admins[x]["photo"])
-
-                except Exception as e:
-                    API._log(str(e))
-        else:
-            admins = []
-
+        # Try to get channel photo
         if "photo" in chat:
             chat["photo"] = await Telegram.get_telegram_file(
                 bot_token=Telegram.get_bot_token(),
                 file_id=chat["photo"]["big_file_id"]
             )
 
-            API._log(f'Photo: {chat["photo"]}')
-
-        API._log(f'Fetched channel @{chat["username"]}')
-
+        # Update DB..
         sel_q = select([Channel]).where(Channel.telegram_id == chat["id"])
         channel = await pg.fetchrow(sel_q)
         channel_dict = {'telegram_id': chat["id"],
@@ -367,32 +351,41 @@ class API(object):
                         'description': chat.get("description", None),
                         'members': chat["members"]}
         if channel is None:
-            API._log("Creating new channel")
             ins_q = insert(Channel).values(**channel_dict).returning(Channel.id)
             channel_id = await pg.fetchval(ins_q)
         else:
-            API._log("Channel exists")
             channel_id = channel['id']
             upd_q = update(Channel).where(Channel.id == channel_id).values(**channel_dict)
             await pg.fetchrow(upd_q)
 
-        for admin in admins:
-            sel_q = select([Client]).where(Client.user_id == admin['id'])
-            client = await pg.fetchrow(sel_q)
-            if client is None:
-                ins_q = insert(Client).values(user_id=admin["id"],
-                                              first_name=admin["first_name"],
-                                              username=admin.get("username", None),
-                                              photo=admin.get("photo", None)).returning(Client.id)
-                admin_id = await pg.fetchval(ins_q)
-            else:
-                admin_id = client['id']
+        if admins:
+            async with pg.transaction() as conn:
+                if channel is not None:
+                    # Delete current admins for existing channel
+                    del_q = delete(ChannelAdmin).where(ChannelAdmin.channel_id == channel_id)
+                    await conn.fetchrow(del_q)
 
-            ins_q = insert(ChannelAdmin).values(channel_id=channel_id, admin_id=admin_id)
-            await pg.fetchrow(ins_q)
-            # TODO: check exception when row already exists
+                # Populate admin list
+                for admin in admins:
+                    user_info = admin.pop('user')
+                    sel_q = select([Client]).where(Client.user_id == user_info['id'])
+                    client = await conn.fetchrow(sel_q)
+                    if client is None:
+                        ins_q = insert(Client).values(user_id=user_info["id"],
+                                                      first_name=user_info["first_name"],
+                                                      username=user_info.get("username", None),
+                                                      photo=user_info.get("photo", None)).returning(Client.id)
+                        admin_id = await conn.fetchval(ins_q)
+                    else:
+                        admin_id = client['id']
 
-        API._log('Updated channel "%s"' % chat['username'])
+                    ins_q = insert(ChannelAdmin).values(channel_id=channel_id,
+                                                        admin_id=admin_id,
+                                                        owner=admin['status'] == 'creator',
+                                                        raw=admin)
+                    await conn.fetchrow(ins_q)
+
+        API._log('%s channel "%s"' % ('Added' if channel is None else 'Updated', chat['username']))
 
         await client.send_response({'id': message['id'],
                                     'action': message['action']})
