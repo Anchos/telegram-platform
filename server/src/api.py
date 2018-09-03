@@ -276,22 +276,22 @@ class API(object):
     @staticmethod
     async def verify_channel(client: ClientConnection, message: dict):
         if not client.is_authorized():
-            API._log("Unauthorised client tried to verify a channel")
+            API._log("Unauthorized client tried to verify a channel")
             await client.send_error(message['id'], 401, "client must login before attempting to verify a channel")
             return
 
-        # TODO: User can be an admin for several channels, message['username'] should be taken into account
-        sel_q = select([ChannelAdmin]).where(ChannelAdmin.admin_id == client.session['client_id'])
-        channel_admin = await pg.fetchrow(sel_q)
-        if channel_admin is not None:
-            channel_admin.channel.verified = True
-            channel_admin.channel.save()
+        sel_q = select([Channel]).select_from(outerjoin(Channel, ChannelAdmin)).\
+            where(and_(ChannelAdmin.admin_id == client.session['client_id'],
+                       Channel.username == message['username']))
+        channel = await pg.fetchrow(sel_q)
+        if not channel:
+            await client.send_error(message['id'], 401, 'Only channel admin can do that')
+            return
 
-            await client.send_response({'id': message['id'],
-                                        'action': message['action']})
+        upd_q = update(Channel).where(Channel.id == channel['id']).values(verified=True)
+        await pg.fetchrow(upd_q)
 
-        else:
-            await client.send_error(message['id'], 401, "client is not admin")
+        await client.send_response({'id': message['id'], 'action': message['action']})
 
     @staticmethod
     async def update_channel(client: ClientConnection, message: dict):
