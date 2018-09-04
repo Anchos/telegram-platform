@@ -1,8 +1,9 @@
 # coding: utf-8
-from sqlalchemy import BigInteger, Boolean, Column, DateTime, ForeignKey, Integer, String, Text, DECIMAL
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import BigInteger, Boolean, Column, DateTime, ForeignKey, Integer, String, Text, DECIMAL, func
+from sqlalchemy.dialects.postgresql import JSONB, ENUM, MONEY
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
+from sqlalchemy.schema import UniqueConstraint
 from sqlalchemy.sql import expression
 
 Base = declarative_base()
@@ -134,16 +135,67 @@ class ChannelSessionAction(Base):
     channel = relationship("Channel")
     session = relationship("Session")
     
-    
-class Transaction(Base):
-    __tablename__ = 'transactions'
+
+class Payment(Base):
+    """
+    Payments received from processing system
+    """
+    __tablename__ = 'payment'
+
     id = Column(Integer, primary_key=True)
+    transaction_id = Column(Integer, nullable=False)  # Transaction ID from payment processing
+    pps = Column(ENUM('interkassa', name='pps'), nullable=False)  # Payment processing system
+    status = Column(ENUM('processing', 'ok', 'fail', name='status'), nullable=False)
+    amount = Column(MONEY, nullable=False)  # Amount refunded to our account
+    currency = Column(String(3), nullable=False)  # 3-chars currency code, USD, EUR, RUB, UAH etc
+    processed_at = Column(DateTime)  # Filled when status is set to 'ok' or 'fail'
+    data = Column(JSONB)  # raw message from payment processing
+    __table_args__ = (
+        UniqueConstraint('transaction_id', 'pps')
+    )
 
-    client_id = Column(ForeignKey('client.id'), nullable=False)
-    client = relationship('Client')
 
-    amount = Column(DECIMAL(12, 2), nullable=False)
-    currency = Column(String(5), nullable=False)
-    opened = Column(DateTime)
-    closed = Column(DateTime)
-    result = JSONB()
+class Offer(Base):
+    """
+    Offers that we provide to our clients, like "7 days of channel pinned on main page"
+    """
+    __tablename__ = 'offer'
+
+    id = Column(Integer, primary_key=True)
+    pin_main_days = Column(Integer)  # Pinned on the main page, days
+    pin_category_days = Column(Integer)  # Pinned on the category page, days
+    related_days = Column(Integer)  # Show channel as related on other channels page, days
+    # TODO: add bumps
+    # TODO: add premiums
+
+
+class Order(Base):
+    """
+    Client's order. Can contain multiple offers, but all for single channel.
+    Payment process:
+      1) User choose the offers that he likes
+      2) User initiates order creation, choose currency and payment system
+      3) We redirect user to payment gateway using order ID
+      4) User pays, payment processing system notifies us about payment via special endpoint
+      5) We receive notification from PPS, create entry in Payment table
+      6) Find out order it's been made for, set payment_id for it
+      7) Apply all of the offers that included to order (from OrderOffer table)
+    """
+    __tablename__ = 'order'
+
+    id = Column(Integer, primary_key=True)
+    client_id = Column(ForeignKey('client.id'), nullable=False)  # Client who made an order
+    channel_id = Column(ForeignKey('channel.id'), nullable=False)  # For that channel
+    created = Column(DateTime, server_default=func.now())  # Order creation time
+    payment_id = Column(ForeignKey('payment.id'))  # Payment for this order
+
+
+class OrderOffer(Base):
+    """
+    Array of offers that client purchased in the order
+    """
+    __tablename__ = 'order_offer'
+
+    order_id = Column(ForeignKey('order.id'), primary_key=True)  # What order owns the entry
+    offer_id = Column(ForeignKey('offer.id'), primary_key=True)  # What offer is included
+    count = Column(Integer, nullable=False, server_default=1)  # Count of similar offers
