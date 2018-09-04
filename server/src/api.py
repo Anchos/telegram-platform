@@ -369,15 +369,15 @@ class API(object):
                 for admin in admins:
                     user_info = admin.pop('user')
                     sel_q = select([Client]).where(Client.user_id == user_info['id'])
-                    client = await conn.fetchrow(sel_q)
-                    if client is None:
+                    db_client = await conn.fetchrow(sel_q)
+                    if db_client is None:
                         ins_q = insert(Client).values(user_id=user_info["id"],
                                                       first_name=user_info["first_name"],
                                                       username=user_info.get("username", None),
                                                       photo=user_info.get("photo", None)).returning(Client.id)
                         admin_id = await conn.fetchval(ins_q)
                     else:
-                        admin_id = client['id']
+                        admin_id = db_client['id']
 
                     ins_q = insert(ChannelAdmin).values(channel_id=channel_id,
                                                         admin_id=admin_id,
