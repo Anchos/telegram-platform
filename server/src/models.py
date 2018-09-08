@@ -162,6 +162,9 @@ class Offer(Base):
     __tablename__ = 'offer'
 
     id = Column(Integer, primary_key=True)
+    price_rub = Column(MONEY, nullable=False)  # Price in RUB
+    price_usd = Column(MONEY, nullable=False)  # Price in USD
+    price_eur = Column(MONEY, nullable=False)  # Price in EUR
     pin_main_days = Column(Integer)  # Pinned on the main page, days
     pin_category_days = Column(Integer)  # Pinned on the category page, days
     related_days = Column(Integer)  # Show channel as related on other channels page, days
