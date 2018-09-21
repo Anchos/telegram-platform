@@ -214,6 +214,28 @@ class API(object):
         if 'language' in message:
             filters.append(Channel.language == message['language'].lower())
 
+        # ----SORT CHANNELS DEBUG START----
+        
+        # if 'sort_type' in message:
+        #
+        #     #MARK
+        #     # TODO [*]: manage sorting
+        #
+        #     #process incoming json
+        #
+        #     if 'asc' in message:
+        #         filters.append('correct select query')
+        #
+        #
+        #     if 'desc' in message:
+        #         filters.append('correct select query')
+        #
+        #     #1. pass total
+        #     #2. sel_q = sel_q.order_by(desc(Channel.vip), desc(Channel.members), desc(Channel.cost))
+
+        # ----SORT CHANNELS DEBUG END----
+
+
         total = await pg.fetchval(select([count(Channel.id.distinct())]).select_from(from_obj).where(and_(*filters)))
 
         if total:
@@ -221,7 +243,7 @@ class API(object):
 
             # Apply ordering
             # TODO: proper premium functions implementation required
-            # TODO: manage sorting
+            # TODO [*]: manage sorting
             sel_q = sel_q.order_by(desc(Channel.vip), desc(Channel.members), desc(Channel.cost))
 
             # Apply Limit/Offset
